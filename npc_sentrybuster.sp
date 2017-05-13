@@ -20,6 +20,7 @@ Handle g_hGetStepHeight;
 Handle g_hGetGravity;
 Handle g_hGetSolidMask;
 Handle g_hStudioFrameAdvance;
+Handle g_hShouldCollideWith;
 
 Handle g_hGetGroundSpeed;
 Handle g_hGetVectors;
@@ -78,7 +79,7 @@ stock int SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	DispatchKeyValueVector(npc, "origin", vSpawn);
 	DispatchKeyValue(npc, "model", MODEL_NPC);
 	DispatchKeyValue(npc, "modelscale", "1.6");
-	DispatchKeyValue(npc, "health", "5000");
+	DispatchKeyValue(npc, "health", "1000");
 	DispatchSpawn(npc);
 	
 	SetEntPropEnt(npc, Prop_Data, "m_hOwnerEntity", iTarget);
@@ -92,10 +93,12 @@ stock int SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	Address pLoco = GetLocomotionInterface(npc);
 	Address pBody = GetBodyInterface(npc);
 	
-	DHookRaw(g_hGetStepHeight,   true, pLoco);
-	DHookRaw(g_hGetGravity,      true, pLoco);
-	DHookRaw(g_hGetGroundNormal, true, pLoco);
-	DHookRaw(g_hGetSolidMask,    true, pBody);
+	DHookRaw(g_hGetStepHeight,     true, pLoco);
+	DHookRaw(g_hGetGravity,        true, pLoco);
+	DHookRaw(g_hGetGroundNormal,   true, pLoco);
+	DHookRaw(g_hShouldCollideWith, true, pLoco);
+	
+	DHookRaw(g_hGetSolidMask,      true, pBody);
 	
 	PF_Create(npc, 18.0, 18.0, 1000.0, 0.6, MASK_PLAYERSOLID, 200.0, 1.0, 1.0, 0.05);
 	iTarget == -1 ? PF_SetGoalVector(npc, vGoal) : PF_SetGoalEntity(npc, iTarget);
@@ -103,10 +106,35 @@ stock int SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	PF_StartPathing(npc);
 	
 	SDKHook(npc, SDKHook_Think, OnBotThink);
+	SDKHook(npc, SDKHook_OnTakeDamageAlive, OnBotDamaged);
 	
 	//Spawn sounds
 	EmitGameSoundToAll("MVM.SentryBusterIntro", npc);
 	EmitGameSoundToAll("MVM.SentryBusterLoop",  npc);
+}
+
+public Action OnBotDamaged(int victim, int &attacker, int &inflictor, float &damage, int &damagetype)
+{
+	int iHealth = GetEntProp(victim, Prop_Data, "m_iHealth");
+	if(damage > iHealth)
+	{
+		damage = 0.0;
+		SetEntProp(victim, Prop_Data, "m_takedamage", 0);
+		
+		SDKUnhook(victim, SDKHook_OnTakeDamageAlive, OnBotDamaged);
+		
+		//Start Detonation
+		EmitGameSoundToAll("MVM.SentryBusterSpin",  victim);
+		SDKCall(g_hResetSequence, victim, ANIM_EXPL);
+		SDKCall(g_hResetSequence, victim, ANIM_EXPL);
+		PF_StopPathing(victim);
+		
+		SetEntPropFloat(victim, Prop_Send, "m_flPlaybackRate", 0.95);
+		
+		return Plugin_Changed;
+	}
+	
+	return Plugin_Continue;
 }
 
 public void OnBotThink(int iEntity)
@@ -174,6 +202,7 @@ public void OnBotThink(int iEntity)
 			//Finish Detonation
 			float vPos[3];
 			GetEntPropVector(iEntity, Prop_Data, "m_vecAbsOrigin", vPos);
+			vPos[2] += 64.0;
 			
 			CreateParticle("fluidSmokeExpl_ring_mvm", iEntity);
 			Explode(vPos, 5000.0, 300.0, "explosionTrail_seeds_mvm", "MVM.SentryBusterExplode");
@@ -183,7 +212,7 @@ public void OnBotThink(int iEntity)
 			AcceptEntityInput(iEntity, "Kill");
 		}
 	}
-	
+
 	SDKCall(g_hStudioFrameAdvance, iEntity);
 }
 
@@ -217,10 +246,11 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 	}
 }
 
-public MRESReturn NextBotGroundLocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturn(hReturn, 18.0);                                      return MRES_Supercede; }
-public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)                      { DHookSetReturn(hReturn, 0x203400B);                                 return MRES_Supercede; }
-public MRESReturn NextBotGroundLocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)      { DHookSetReturn(hReturn, 800.0);                                     return MRES_Supercede; }
-public MRESReturn NextBotGroundLocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } )); return MRES_Supercede; }
+public MRESReturn NextBotGroundLocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)     { DHookSetReturn(hReturn, 18.0);                                      return MRES_Supercede; }
+public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)                        { DHookSetReturn(hReturn, 0x203400B);                                 return MRES_Supercede; }
+public MRESReturn NextBotGroundLocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 800.0);                                     return MRES_Supercede; }
+public MRESReturn NextBotGroundLocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } )); return MRES_Supercede; }
+public MRESReturn NextBotGroundLocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, false);                                     return MRES_Supercede; }
 
 public float clamp(float a, float b, float c)
 {
@@ -368,6 +398,11 @@ public void OnPluginStart()
 	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::GetGroundNormal");
 	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::GetGroundNormal");
 	g_hGetGroundNormal = DHookCreate(iOffset, HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, NextBotGroundLocomotion_GetGroundNormal);
+	
+	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::ShouldCollideWith");
+	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::ShouldCollideWith");
+	g_hShouldCollideWith = DHookCreate(iOffset, HookType_Raw, ReturnType_Bool, ThisPointer_Address, NextBotGroundLocomotion_ShouldCollideWith);
+	DHookAddParam(g_hShouldCollideWith, HookParamType_CBaseEntity);
 	
 	//ILocomotion::GetGroundSpeed() 
 	StartPrepSDKCall(SDKCall_Raw);
