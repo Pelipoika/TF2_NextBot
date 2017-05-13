@@ -46,6 +46,12 @@ public void OnMapStart()
 {
 	PrecacheModel(MODEL_NPC);
 
+	//Absolutely fucking retarded.
+	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_explode.wav");
+	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_spin.wav");
+	PrecacheSound("mvm/sentrybuster/mvm_sentrybuster_loop.wav");
+	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_intro.wav");
+
 	PrecacheScriptSound("MVM.SentryBusterExplode");
 	PrecacheScriptSound("MVM.SentryBusterSpin");
 	PrecacheScriptSound("MVM.SentryBusterLoop");
@@ -241,6 +247,7 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 			SDKCall(g_hResetSequence, bot_entidx, ANIM_EXPL);
 			PF_StopPathing(bot_entidx);
 			
+			SetEntProp(bot_entidx, Prop_Data, "m_takedamage", 0);
 			SetEntPropFloat(bot_entidx, Prop_Send, "m_flPlaybackRate", 0.95);
 		}
 	}
@@ -252,10 +259,7 @@ public MRESReturn NextBotGroundLocomotion_GetGravity(Address pThis, Handle hRetu
 public MRESReturn NextBotGroundLocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } )); return MRES_Supercede; }
 public MRESReturn NextBotGroundLocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, false);                                     return MRES_Supercede; }
 
-public float clamp(float a, float b, float c)
-{
-	return (a > c ? c : (a < b ? b : a));
-}
+public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b : a)); }
 
 public Address GetLocomotionInterface(int index)
 {
