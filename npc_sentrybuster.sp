@@ -89,6 +89,9 @@ stock int SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	DispatchKeyValue(npc, "health", "1000");
 	DispatchSpawn(npc);
 	
+	//trigger_hurts hurt.
+	SetEntityFlags(npc, FL_CLIENT);
+	
 	SetEntPropEnt(npc, Prop_Data, "m_hOwnerEntity", iTarget);
 	SetEntPropFloat(npc, Prop_Data, "m_speed", 500.0);
 	SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
@@ -236,7 +239,7 @@ void Buster_StartDetonation(int bot)
 	PF_StopPathing(bot);
 	
 	SetEntProp(bot, Prop_Data, "m_takedamage", 0);
-	SetEntPropFloat(bot, Prop_Send, "m_flPlaybackRate", 0.95);
+	SetEntPropFloat(bot, Prop_Send, "m_flPlaybackRate", 1.0);
 	
 	StopSound(bot, SNDCHAN_STATIC, "mvm/sentrybuster/mvm_sentrybuster_loop.wav");
 	
@@ -267,17 +270,8 @@ public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Han
 
 public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b : a)); }
 
-public Address GetLocomotionInterface(int index)
-{
-	Address pNB = SDKCall(g_hMyNextBotPointer, index);
-	return SDKCall(g_hGetLocomotionInterface, pNB);
-}
-
-public Address GetBodyInterface(int index)
-{
-	Address pNB = SDKCall(g_hMyNextBotPointer, index);
-	return SDKCall(g_hGetBodyInterface, pNB);
-}
+public Address GetLocomotionInterface(int index) { return SDKCall(g_hGetLocomotionInterface, SDKCall(g_hMyNextBotPointer, index)); }
+public Address GetBodyInterface(int index)       { return SDKCall(g_hGetBodyInterface, SDKCall(g_hMyNextBotPointer, index)); }
 
 stock void Explode(float flPos[3], float flDamage, float flRadius, const char[] strParticle, const char[] strSound)
 {
