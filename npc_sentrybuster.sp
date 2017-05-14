@@ -261,12 +261,12 @@ void Buster_Detonate(int bot)
 	AcceptEntityInput(bot, "Kill");
 }
 
-public MRESReturn NextBotGroundLocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)     { DHookSetReturn(hReturn, 18.0);                                      return MRES_Supercede; }
-public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)                        { DHookSetReturn(hReturn, 0x203400B);                                 return MRES_Supercede; }
-public MRESReturn NextBotGroundLocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 800.0);                                     return MRES_Supercede; }
-public MRESReturn NextBotGroundLocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } )); return MRES_Supercede; }
-public MRESReturn NextBotGroundLocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, false);                                     return MRES_Supercede; }
-public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)            { DHookSetReturn(hReturn, 700.0);                                     return MRES_Supercede; }
+public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)      { DHookSetReturn(hReturn, 32.0);                                      return MRES_Supercede; }
+public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 0x203400B);                                 return MRES_Supercede; }
+public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)         { DHookSetReturn(hReturn, 800.0);                                     return MRES_Supercede; }
+public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } )); return MRES_Supercede; }
+public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, false);                                     return MRES_Supercede; }
+public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 700.0);                                     return MRES_Supercede; }
 
 public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b : a)); }
 
@@ -398,11 +398,11 @@ public void OnPluginStart()
 	
 	int iOffset = GameConfGetOffset(hConf, "CTFBaseBossLocomotion::GetStepHeight");
 	if(iOffset == -1) SetFailState("Failed to get offset of CTFBaseBossLocomotion::GetStepHeight");
-	g_hGetStepHeight = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, NextBotGroundLocomotion_GetStepHeight);
+	g_hGetStepHeight = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, ILocomotion_GetStepHeight);
 
 	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::GetGravity");
 	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::GetGravity");
-	g_hGetGravity = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, NextBotGroundLocomotion_GetGravity);
+	g_hGetGravity = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, ILocomotion_GetGravity);
 	
 	iOffset = GameConfGetOffset(hConf, "IBody::GetSolidMask");
 	if(iOffset == -1) SetFailState("Failed to get offset of IBody::GetSolidMask");
@@ -410,11 +410,11 @@ public void OnPluginStart()
 	
 	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::GetGroundNormal");
 	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::GetGroundNormal");
-	g_hGetGroundNormal = DHookCreate(iOffset, HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, NextBotGroundLocomotion_GetGroundNormal);
+	g_hGetGroundNormal = DHookCreate(iOffset, HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, ILocomotion_GetGroundNormal);
 	
 	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::ShouldCollideWith");
 	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::ShouldCollideWith");
-	g_hShouldCollideWith = DHookCreate(iOffset, HookType_Raw, ReturnType_Bool, ThisPointer_Address, NextBotGroundLocomotion_ShouldCollideWith);
+	g_hShouldCollideWith = DHookCreate(iOffset, HookType_Raw, ReturnType_Bool, ThisPointer_Address, ILocomotion_ShouldCollideWith);
 	DHookAddParam(g_hShouldCollideWith, HookParamType_CBaseEntity);
 	
 	g_hGetMaxAcceleration  = DHookCreate(84, HookType_Raw, ReturnType_Float, ThisPointer_Address, ILocomotion_GetMaxAcceleration);
