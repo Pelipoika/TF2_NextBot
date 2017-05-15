@@ -97,6 +97,7 @@ stock void SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	//trigger_hurts hurt.
 	SetEntityFlags(npc, FL_CLIENT);
 	
+	SetEntProp(npc, Prop_Data, "m_bloodColor", -1); //Don't bleed
 	SetEntPropEnt(npc, Prop_Data, "m_hOwnerEntity", iTarget);
 	SetEntPropFloat(npc, Prop_Data, "m_speed", 500.0);
 	SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
@@ -136,6 +137,9 @@ stock void SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 public Action OnBotDamaged(int victim, int &attacker, int &inflictor, float &damage, int &damagetype)
 {
 	int iHealth = GetEntProp(victim, Prop_Data, "m_iHealth");
+	
+	CreateParticle("bot_impact_heavy", victim);
+	
 	if(damage > iHealth)
 	{
 		damage = 0.0;		
