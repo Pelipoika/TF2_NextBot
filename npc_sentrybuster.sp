@@ -20,12 +20,14 @@ Handle g_hGetStepHeight;
 Handle g_hGetGravity;
 Handle g_hGetSolidMask;
 Handle g_hStudioFrameAdvance;
+Handle g_hDispatchAnimEvents;
 
 Handle g_hGetMaxAcceleration;
 Handle g_hShouldCollideWith;
 Handle g_hGetGroundSpeed;
 Handle g_hGetVectors;
 Handle g_hGetGroundMotionVector;
+Handle g_hHandleAnimEvent;
 
 Handle g_hLookupPoseParameter;
 Handle g_hSetPoseParameter;
@@ -62,12 +64,12 @@ public void OnMapStart()
 
 public Action test(int client, int args)
 {
-	SpawnBuster(GetClientTeam(client), client, NULL_VECTOR);
+	SpawnBuster(GetClientTeam(client) == 2 ? 3 : 2, client, NULL_VECTOR); 
 	
 	return Plugin_Handled;
 }
 
-stock int SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
+stock void SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 {
 	int spawn = -1;
 	while((spawn = FindEntityByClassname(spawn, "info_player_teamspawn")) != -1)
@@ -78,6 +80,9 @@ stock int SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 		if(!bDisabled && iSpawnTeam == iTeam)
 			break;
 	}
+	
+	if(spawn == -1)
+		return;
 	
 	float vSpawn[3];
 	GetEntPropVector(spawn, Prop_Data, "m_vecAbsOrigin", vSpawn);
@@ -100,6 +105,8 @@ stock int SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	
 	ActivateEntity(npc);
 	
+	DHookEntity(g_hHandleAnimEvent, false, npc);
+	
 	Address pLoco = GetLocomotionInterface(npc);
 	Address pBody = GetBodyInterface(npc);
 	
@@ -111,10 +118,11 @@ stock int SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	
 	DHookRaw(g_hGetSolidMask,      true, pBody);
 	
-	PF_Create(npc, 18.0, 18.0, 1000.0, 0.6, MASK_PLAYERSOLID, 200.0, 1.0, 1.0, 0.05);
+	PF_Create(npc, 18.0, 18.0, 1000.0, 0.6, MASK_PLAYERSOLID, 200.0, 1.0, 1.0, 0.3);
 	iTarget == -1 ? PF_SetGoalVector(npc, vGoal) : PF_SetGoalEntity(npc, iTarget);
 	PF_EnableCallback(npc, PFCB_Approach, PluginBot_Approach);	
 	PF_EnableCallback(npc, PFCB_IsEntityTraversable, PluginBot_Traversible);	
+	PF_EnableCallback(npc, PFCB_PathFailed, PluginBot_PathFailed);	
 	PF_StartPathing(npc);
 	
 	SDKHook(npc, SDKHook_Think, OnBotThink);
@@ -202,9 +210,18 @@ public void OnBotThink(int iEntity)
 	}
 
 	SDKCall(g_hStudioFrameAdvance, iEntity);
+	SDKCall(g_hDispatchAnimEvents, iEntity, iEntity);
 }
 
 public bool PluginBot_Traversible(int bot_entidx, int other_entidx) { return true; }
+
+public void PluginBot_PathFailed(int bot_entidx) 
+{
+	PF_DisableCallback(bot_entidx, PFCB_PathFailed);
+	PF_StopPathing(bot_entidx);
+	
+	Buster_StartDetonation(bot_entidx);
+}
 
 public void PluginBot_Approach(int bot_entidx, const float vec[3])
 {
@@ -264,14 +281,19 @@ void Buster_Detonate(int bot)
 public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 0x203400B);                                 return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)         { DHookSetReturn(hReturn, 800.0);                                     return MRES_Supercede; }
 public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)      { DHookSetReturn(hReturn, 32.0);                                      return MRES_Supercede; }
-public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 700.0);                                     return MRES_Supercede; }
+public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 800.0);                                     return MRES_Supercede; }
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, false);                                     return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } )); return MRES_Supercede; }
+
+public MRESReturn CBaseAnimating_HandleAnimEvent(int pThis, Handle hReturn, Handle hParams)
+{
+	PrintToChatAll("CBaseAnimating_HandleAnimEvent");
+}
 
 public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b : a)); }
 
 public Address GetLocomotionInterface(int index) { return SDKCall(g_hGetLocomotionInterface, SDKCall(g_hMyNextBotPointer, index)); }
-public Address GetBodyInterface(int index)       { return SDKCall(g_hGetBodyInterface, SDKCall(g_hMyNextBotPointer, index)); }
+public Address GetBodyInterface(int index)       { return SDKCall(g_hGetBodyInterface,       SDKCall(g_hMyNextBotPointer, index)); }
 
 stock void Explode(float flPos[3], float flDamage, float flRadius, const char[] strParticle, const char[] strSound)
 {
@@ -353,6 +375,11 @@ public void OnPluginStart()
 	if ((g_hStudioFrameAdvance = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::StudioFrameAdvance offset!"); 	
 
 	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseAnimating::DispatchAnimEvents");
+	PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
+	if ((g_hDispatchAnimEvents = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::DispatchAnimEvents offset!"); 
+	
+	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequence");
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
 	if ((g_hResetSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::ResetSequence signature!"); 
@@ -407,6 +434,11 @@ public void OnPluginStart()
 	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::ShouldCollideWith");
 	g_hShouldCollideWith = DHookCreate(iOffset, HookType_Raw, ReturnType_Bool, ThisPointer_Address, ILocomotion_ShouldCollideWith);
 	DHookAddParam(g_hShouldCollideWith, HookParamType_CBaseEntity);
+	
+	iOffset = GameConfGetOffset(hConf, "CBaseAnimating::HandleAnimEvent");
+	if(iOffset == -1) SetFailState("Failed to get offset of CBaseAnimating::HandleAnimEvent");
+	g_hHandleAnimEvent = DHookCreate(iOffset, HookType_Entity, ReturnType_Void, ThisPointer_CBaseEntity, CBaseAnimating_HandleAnimEvent);
+	DHookAddParam(g_hHandleAnimEvent, HookParamType_Unknown);
 	
 	g_hGetMaxAcceleration  = DHookCreate(84, HookType_Raw, ReturnType_Float, ThisPointer_Address, ILocomotion_GetMaxAcceleration);
 	
