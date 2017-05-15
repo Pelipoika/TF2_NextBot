@@ -2,7 +2,7 @@
 #include <sdkhooks>
 #include <dhooks>
 #include <pathfollower>
-#include <pathfollower_Nav>
+#include <tf2_stocks>
 
 #pragma newdecls required
 
@@ -35,6 +35,21 @@ Handle g_hSetPoseParameter;
 #define ANIM_MOVE 78
 #define ANIM_IDLE 48
 #define ANIM_EXPL 103
+#define ANIM_FLOA 86
+
+/*
+struct animevent_t
+{
+	int				event;
+	const char		*options;
+	float			cycle;
+	float			eventtime;
+	int				type;
+	CBaseAnimating	*pSource;
+};
+
+https://mxr.alliedmods.net/hl2sdk-sdk2013/source/game/server/hl2/npc_citizen17.cpp#1860
+*/
 
 public Plugin myinfo = 
 {
@@ -64,7 +79,23 @@ public void OnMapStart()
 
 public Action test(int client, int args)
 {
-	SpawnBuster(GetClientTeam(client) == 2 ? 3 : 2, client, NULL_VECTOR); 
+	int iTarget = GetClientAimTarget(client, false);	
+	if(IsValidEntity(iTarget) && PF_IsEntityACombatCharacter(iTarget))
+	{
+		SpawnBuster(GetEntProp(iTarget, Prop_Send, "m_iTeamNum") == 3 ? 2 : 3, iTarget, NULL_VECTOR); 
+		ReplyToCommand(client, "[SM] Spawned a Sentry Buster after whatever you aimed at");
+	}	
+	else
+	{
+		SpawnBuster(GetClientTeam(client), client, NULL_VECTOR); 
+		ReplyToCommand(client, "[SM] Spawned a Sentry Buster after YOU!");
+		
+		//Go det at aimpos.
+	//	float vPos[3];
+	//	GetAimPos(client, vPos);
+		
+	//	SpawnBuster(GetClientTeam(client) == 2 ? 3 : 2, -1, vPos); 
+	}
 	
 	return Plugin_Handled;
 }
@@ -171,9 +202,19 @@ public void OnBotThink(int iEntity)
 		float flGroundSpeed = SDKCall(g_hGetGroundSpeed, pLocomotion);
 		if ( flGroundSpeed != 0.0 )
 		{
-			if(iSequence != ANIM_MOVE)
+			if(!(GetEntityFlags(iEntity) & FL_ONGROUND))
 			{
-				SDKCall(g_hResetSequence, iEntity, ANIM_MOVE);
+				if(iSequence != ANIM_FLOA)
+				{
+					SDKCall(g_hResetSequence, iEntity, ANIM_FLOA);
+				}
+			}
+			else
+			{			
+				if(iSequence != ANIM_MOVE)
+				{
+					SDKCall(g_hResetSequence, iEntity, ANIM_MOVE);
+				}
 			}
 			
 			float vecForward[3], vecRight[3], vecUp[3];
@@ -330,13 +371,15 @@ stock void CreateParticle(char[] particle, int iEntity)
 		}
 	}
 	
-	float vPos[3];
+	float vPos[3], vAng[3];
 	GetEntPropVector(iEntity, Prop_Data, "m_vecAbsOrigin", vPos);
+	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", vAng);
 	
 	TE_Start("TFParticleEffect");
 	TE_WriteFloat("m_vecOrigin[0]", vPos[0]);
 	TE_WriteFloat("m_vecOrigin[1]", vPos[1]);
 	TE_WriteFloat("m_vecOrigin[2]", vPos[2]);
+	TE_WriteVector("m_vecAngles", vAng);
 	TE_WriteNum("m_iParticleSystemIndex", stridx);
 	TE_WriteNum("entindex", iEntity);
 	TE_WriteNum("m_iAttachType", 0);
