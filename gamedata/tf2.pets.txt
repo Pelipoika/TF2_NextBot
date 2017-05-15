@@ -43,6 +43,11 @@
 				"windows"	"204"
 				"linux"		"205"
 			}
+			"CBaseAnimating::HandleAnimEvent" //(animevent_t*)
+			{
+				"windows"	"205"
+				"linux"		"206"
+			}
 			"INextBot::GetLocomotionInterface"
 			{
 				"windows"	"48"
