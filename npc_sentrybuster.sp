@@ -522,29 +522,13 @@ public void OnPluginStart()
 	delete hConf;
 }
 
-bool StartActivity(int iEntity, Activity iActivity, int nActivityType)
-{
-	int nSequence = pHatman->SelectWeightedSequence();
-	if (nSequence == 0) return false;
-	
-	this->m_iActivity = iActivity;
-	
-	pHatman->SetSequence(nSequence);
-	pHatman->SetPlaybackRate(1.0f);
-	pHatman->SetCycle(0.0f);
-	
-	pHatman->ResetSequenceInfo();
-	
-	return true;
-}
-
 //I should of have done this long ago.
 Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType returntype, ThisPointerType thistype, DHookCallback callback)
 {
 	int iOffset = GameConfGetOffset(gc, key);
 	if(iOffset == -1)
 	{
-		SetFailState("Failed to get offset of CBaseAnimating::HandleAnimEvent");
+		SetFailState("Failed to get offset of %s", key);
 		return null;
 	}
 	
