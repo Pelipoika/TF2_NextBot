@@ -122,7 +122,7 @@ stock void SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	int npc = CreateEntityByName("base_boss");
 	DispatchKeyValueVector(npc, "origin", vSpawn);
 	DispatchKeyValue(npc, "model", MODEL_NPC);
-	DispatchKeyValue(npc, "modelscale", "1.6");
+	DispatchKeyValue(npc, "modelscale", "1.75");
 	DispatchKeyValue(npc, "health", "1000");
 	DispatchSpawn(npc);
 	
@@ -141,21 +141,21 @@ stock void SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	DHookEntity(g_hHandleAnimEvent, false, npc);
 	
 	Address pLoco = GetLocomotionInterface(npc);
-	Address pBody = GetBodyInterface(npc);
-	
 	DHookRaw(g_hGetStepHeight,      true, pLoco);
 	DHookRaw(g_hGetGravity,         true, pLoco);
 	DHookRaw(g_hGetGroundNormal,    true, pLoco);
 	DHookRaw(g_hShouldCollideWith,  true, pLoco);
 	DHookRaw(g_hGetMaxAcceleration, true, pLoco);
 	
+	Address pBody = GetBodyInterface(npc);
 	DHookRaw(g_hGetSolidMask,      true, pBody);
 	
 	PF_Create(npc, 18.0, 18.0, 1000.0, 0.6, MASK_PLAYERSOLID, 200.0, 1.0, 1.0, 0.3);
 	iTarget == -1 ? PF_SetGoalVector(npc, vGoal) : PF_SetGoalEntity(npc, iTarget);
-	PF_EnableCallback(npc, PFCB_Approach, PluginBot_Approach);	
-	PF_EnableCallback(npc, PFCB_IsEntityTraversable, PluginBot_Traversible);	
-	PF_EnableCallback(npc, PFCB_PathFailed, PluginBot_PathFailed);	
+	PF_EnableCallback(npc, PFCB_Approach,            PluginBot_Approach);	
+	PF_EnableCallback(npc, PFCB_IsEntityTraversable, PluginBot_Traversible);
+	PF_EnableCallback(npc, PFCB_GetPathCost,         PluginBot_PathCost);
+	PF_EnableCallback(npc, PFCB_PathFailed,          PluginBot_PathFailed);	
 	PF_StartPathing(npc);
 	
 	SDKHook(npc, SDKHook_Think, OnBotThink);
@@ -267,6 +267,38 @@ public void PluginBot_PathFailed(int bot_entidx)
 	PF_StopPathing(bot_entidx);
 	
 	Buster_StartDetonation(bot_entidx);
+}
+
+public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
+{
+	float dist;
+	if (length != 0.0) 
+	{
+		dist = length;
+	}
+	else 
+	{
+		float vecCenter[3], vecFromCenter[3];
+		area.GetCenter(vecCenter);
+		from_area.GetCenter(vecFromCenter);
+		
+		float vecSubtracted[3]
+		SubtractVectors(vecCenter, vecFromCenter, vecSubtracted)
+		
+		dist = GetVectorLength(vecSubtracted);
+	}
+	
+	float multiplier = 1.0;
+	
+	int seed = RoundToFloor(GetGameTime() * 0.1) + 1;
+	seed *= area.GetID();
+	seed *= bot_entidx;
+	
+	multiplier += (Cosine(float(seed)) + 1.0) * 10.0;
+	
+	float cost = dist * multiplier;
+	
+	return from_area.GetCostSoFar() + cost;
 }
 
 public void PluginBot_Approach(int bot_entidx, const float vec[3])
