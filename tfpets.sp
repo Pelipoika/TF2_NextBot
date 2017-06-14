@@ -3,12 +3,9 @@
 #include <PathFollower>
 #include <PathFollower_Nav>
 #include <dhooks>
-#include <utilsext>
 #include <dynamic>
 
 #pragma newdecls required;
-
-#define MOVING_MINIMUM_SPEED 0.25
 
 #define RAD2DEG(%1) ((%1) * (180.0 / FLOAT_PI))
 #define DEG2RAD(%1) ((%1) * FLOAT_PI / 180.0)
@@ -40,25 +37,34 @@ Handle g_hGetVelocity;
 Handle g_hSetVelocity;
 Handle g_hStudioFrameAdvance;
 Handle g_hJump;
+Handle g_hResetSequenceInfo;
+Handle g_hDispatchAnimEvents;
+Handle g_hGetMaxAcceleration;
+Handle g_hGetGroundSpeed;
+Handle g_hGetVectors;
+Handle g_hGetGroundMotionVector;
+Handle g_hLookupPoseParameter;
+Handle g_hSetPoseParameter;
+Handle g_hGetPoseParameter;
+Handle g_hLookupSequence;
+Handle g_hSDKWorldSpaceCenter;
 
 //PluginBot DHooks
 Handle g_hGetEntity;
 Handle g_hGetBot;
 
 //DHooks
-Handle g_hGetFrictionSideways;
-Handle g_hGetFrictionForward;
+//Handle g_hGetFrictionSideways;
+//Handle g_hGetFrictionForward;
 Handle g_hGetStepHeight;
 Handle g_hGetGravity;
 Handle g_hGetGroundNormal;
 Handle g_hShouldCollideWith;
 Handle g_hGetSolidMask;
-Handle g_hStartActivity;
-Handle g_hGetHullWidth;
-Handle g_hGetStandHullHeight;
-Handle g_hGetCrouchHullHeight;
-
-static float m_flEstimateYaw[2049] = { 0.0, ... };
+//Handle g_hStartActivity;
+//Handle g_hGetHullWidth;
+//Handle g_hGetStandHullHeight;
+//Handle g_hGetCrouchHullHeight;
 
 public Plugin myinfo = 
 {
@@ -89,8 +95,9 @@ methodmap BaseNPC __nullable__
 		DHookRaw(g_hGetStepHeight,       true, pLocomotion);
 		DHookRaw(g_hGetGravity,          true, pLocomotion);
 		DHookRaw(g_hShouldCollideWith,   true, pLocomotion);
-		DHookRaw(g_hGetFrictionSideways, true, pLocomotion);
-		DHookRaw(g_hGetFrictionForward,  true, pLocomotion);
+		DHookRaw(g_hGetMaxAcceleration,  true, pLocomotion);
+	//	DHookRaw(g_hGetFrictionSideways, true, pLocomotion);
+	//	DHookRaw(g_hGetFrictionForward,  true, pLocomotion);
 		
 		if(bGroundNormal)
 			DHookRaw(g_hGetGroundNormal, true, pLocomotion)
@@ -98,10 +105,10 @@ methodmap BaseNPC __nullable__
 		Address pBody = SDKCall(g_hGetBodyInterface, pNB);
 		
 		DHookRaw(g_hGetSolidMask,        true, pBody);
-		DHookRaw(g_hStartActivity,       true, pBody);
-		DHookRaw(g_hGetHullWidth,        true, pBody);
-		DHookRaw(g_hGetStandHullHeight,  true, pBody);
-		DHookRaw(g_hGetCrouchHullHeight, true, pBody);
+	//	DHookRaw(g_hStartActivity,       true, pBody);
+	//	DHookRaw(g_hGetHullWidth,        true, pBody);
+	//	DHookRaw(g_hGetStandHullHeight,  true, pBody);
+	//	DHookRaw(g_hGetCrouchHullHeight, true, pBody);
 		
 		SetEntityFlags(npc, FL_NOTARGET);
 		
@@ -275,18 +282,55 @@ methodmap BaseNPC __nullable__
 		}
 	}
 	
+	public Address GetStudioHdr()
+	{
+		return view_as<Address>(GetEntData(this.index, 283 * 4));
+	}
+	
+	public float GetPoseParameter(int iParameter)
+	{
+		return SDKCall(g_hGetPoseParameter, this.index, iParameter);
+	}
+	
+	public void SetPoseParameter(int iParameter, float value)
+	{
+		Address pStudioHdr = this.GetStudioHdr();
+		if(pStudioHdr == Address_Null)
+			return;
+			
+		SDKCall(g_hSetPoseParameter, this.index, pStudioHdr, iParameter, value);
+	}
+	
+	public int LookupPoseParameter(const char[] szName)
+	{
+		Address pStudioHdr = this.GetStudioHdr();
+		if(pStudioHdr == Address_Null)
+			return -1;
+			
+		return SDKCall(g_hLookupPoseParameter, this.index, pStudioHdr, szName);
+	}
+	
+	public int LookupSequence(const char[] anim)
+	{
+		Address pStudioHdr = this.GetStudioHdr();
+		if(pStudioHdr == Address_Null)
+			return -1;
+			
+		return SDKCall(g_hLookupSequence, pStudioHdr, anim);
+	}
+	
 	public void SetAnimation(const char[] anim)
 	{
-		int iSequence = utils_EntityLookupSequence(this.index, anim);
-		if(iSequence != -1)
-			SDKCall(g_hResetSequence, this, iSequence);
+		int iSequence = this.LookupSequence(anim);
+		if(iSequence > 0)
+			SDKCall(g_hResetSequence, this.index, iSequence);
 	}
 	
 	public void PlayGesture(const char[] anim)
 	{
-		int iAnim = utils_EntityLookupSequence(this.index, anim);
-		AnimOverlayHandler handler = AnimOverlayHandler(this.index);
-		handler.AddGestureSequence(iAnim);
+//		int iAnim = utils_EntityLookupSequence(this.index, anim);
+//		AnimOverlayHandler handler = AnimOverlayHandler(this.index);
+//		handler.AddGestureSequence(iAnim);
 	}
 	
 	public void CreatePather(int iTarget, float flStep, float flJump, float flDrop, int iSolid, float flAhead, float flRePath, float flHull)
@@ -652,7 +696,7 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	seed *= bot_entidx;
 	
 	/* huge random cost modifier [0, 100] for non-giant bots! */
-	multiplier += (Cosine(float(seed)) + 1.0) * 50.0;
+	multiplier += (Cosine(float(seed)) + 1.0) * 5.0;
 	
 	float cost = dist * multiplier;
 	
@@ -789,94 +833,45 @@ methodmap PetHeavy < BaseNPC
 	}
 }
 
-methodmap PetZombie < BaseNPC
+methodmap PetEngineer < BaseNPC
 {
-	public PetZombie(int client, float vecPos[3], float vecAng[3], const char[] model)
+	public PetEngineer(int client, float vecPos[3], float vecAng[3])
 	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.5");
+		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/engineer/bot_engineer.mdl", "0.5");
 		
-		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        100.0);
+		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        230.0);
+		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
 		Dynamic brain = pet.GetBrainInterface();
 		
-		//REQUIRED IF YOU'RE GOING TO USE Blend(8/9)Think
-		brain.SetString("MoveAnim", "walk");
-		brain.SetFloat("MoveSpeed", 22.5);
-		brain.SetString("IdleAnim", "Idle01");
-		brain.SetFloat("OutOfRange", 300.0);
-		//////////
-		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
-		pet.Pathing = true;
-		
-		//You can implement your own pet functions here.
-		SDKHook(pet.index, SDKHook_Think, PetHeavyThink);
-		//Controls 9 way blend animation managing
-		SDKHook(pet.index, SDKHook_Think, Blend8Think);
-		
-		return view_as<PetZombie>(pet);
-	}
-}
-
-methodmap PetAlyx < BaseNPC
-{
-	public PetAlyx(int client, float vecPos[3], float vecAng[3], const char[] model)
-	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.5");
-		
-		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        100.0);
-		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
-		
-		Dynamic brain = pet.GetBrainInterface();
-		
-		//REQUIRED IF YOU'RE GOING TO USE Blend(8/9)Think
-		brain.SetString("MoveAnim", "run_all");
-		brain.SetFloat("MoveSpeed", 105.0);
-		brain.SetString("IdleAnim", "idle_subtle");
+		//REQUIRED IF YOU'RE GOING TO USE Blend9Think
+		brain.SetString("MoveAnim", "Run_MELEE");
+		brain.SetFloat("MoveSpeed", 115.0);
+		brain.SetString("IdleAnim", "Stand_MELEE");
 		brain.SetFloat("OutOfRange", 400.0);
 		//////////
 		
 		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.SetAnimation("Stand_PRIMARY");
 		pet.Pathing = true;
 		
 		//You can implement your own pet functions here.
 		SDKHook(pet.index, SDKHook_Think, PetHeavyThink);
 		//Controls 9 way blend animation managing
-		SDKHook(pet.index, SDKHook_Think, Blend8Think);
+		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		
-		return view_as<PetAlyx>(pet);
+		return view_as<PetEngineer>(pet);
 	}
-}
-
-methodmap PetGman < BaseNPC
-{
-	public PetGman(int client, float vecPos[3], float vecAng[3], const char[] model)
-	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.5");
-		
-		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        100.0);
-		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
-		
-		Dynamic brain = pet.GetBrainInterface();
-		
-		//REQUIRED IF YOU'RE GOING TO USE Blend(8/9)Think
-		brain.SetString("MoveAnim", "run_all");
-		brain.SetFloat("MoveSpeed", 105.0);
-		brain.SetString("IdleAnim", "idle_angry");
-		brain.SetFloat("OutOfRange", 400.0);
-		//////////
-		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
-		pet.Pathing = true;
-		
-		//You can implement your own pet functions here.
-		SDKHook(pet.index, SDKHook_Think, PetHeavyThink);
-		//Controls 9 way blend animation managing
-		SDKHook(pet.index, SDKHook_Think, Blend8Think);
-		
-		return view_as<PetGman>(pet);
-	}
+	
+	//TODO: Metal collection behavior 
+	//-> If owner ammo low
+	//-> Find reachable ammo pack
+	//-> Go grab ammo pack on shoulder "run_BUILDING_DEPLOYED" & "stand_BUILDING_DEPLOYED"
+	//-> Bring to owner 
+	//-> When near owner, throw at owner
+	//-> Done
+	//https://github.com/danielmm8888/TF2Classic/blob/master/src/game/shared/Multiplayer/multiplayer_animstate.cpp#L1652
 }
 
 public void PetHeavyThink(int iEntity)
@@ -1016,8 +1011,6 @@ public void PetTankThink(int iEntity)
 		if(npc.Pathing)
 		{
 			npc.Pathing = false;
-			SetEntPropFloat(npc.LeftTrack,  Prop_Send, "m_flPlaybackRate", 0.0);
-			SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 0.0);
 		}
 	}
 	else
@@ -1026,14 +1019,10 @@ public void PetTankThink(int iEntity)
 		if(flDistance >= 300.0)
 		{
 			SetEntPropFloat(iEntity, Prop_Data, "m_speed", GetEntPropFloat(client, Prop_Send, "m_flMaxspeed"));
-			SetEntPropFloat(npc.LeftTrack,  Prop_Send, "m_flPlaybackRate", 16.0);
-			SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 16.0);
 		}
 		else
 		{
 			SetEntPropFloat(iEntity, Prop_Data, "m_speed", GetEntPropFloat(client, Prop_Send, "m_flMaxspeed") / 4);
-			SetEntPropFloat(npc.LeftTrack,  Prop_Send, "m_flPlaybackRate", 4.0);
-			SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 4.0);
 		}
 		
 		if(!npc.Pathing)
@@ -1048,9 +1037,8 @@ public void PetMedicThink(int iEntity)
 	PetMedic npc = view_as<PetMedic>(iEntity);
 	npc.Update();
 	
-	float flOrigin[3], flAbsAngles[3];
-	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
-	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+	float flOrigin[3];    flOrigin = WorldSpaceCenter(iEntity);
+	float flAbsAngles[3]; GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
 	
 	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
 	
@@ -1062,28 +1050,25 @@ public void PetMedicThink(int iEntity)
 	
 	if(bHealing)
 	{
-	/*	float v[3], ang[3], clientPos[3];
-		GetClientEyePosition(client, clientPos);
-		clientPos[2] -= 40.0;
-		SubtractVectors(flOrigin, clientPos, v); 
+		float v[3], ang[3];
+		SubtractVectors(flOrigin, WorldSpaceCenter(client), v); 
 		NormalizeVector(v, v);
 		GetVectorAngles(v, ang); 
 		
-		int iPitch = utils_EntityLookupPoseParameter(iEntity, "body_pitch");
-		if(iPitch >= 0)
-		{
-			float flPitch = utils_EntityGetPoseParameter(iEntity, iPitch);
-			
-			if (ang[0] > 180.0) 
-				ang[0] -= 360.0;
-			
-			clamp(ang[0], -30.0, 30.0);
-			clamp(flPitch, -30.0, 30.0);
-			
-			utils_EntitySetPoseParameter(iEntity, iPitch, ApproachAngle(ang[0], flPitch, 1.0));
-		//	PrintToServer("ang[0] %f flNewPitch %f flPitch %f", ang[0], flNewPitch, flPitch);
-		}*/
-	
+		int iPitch = npc.LookupPoseParameter("body_pitch");
+		if(iPitch < 0)
+			return;
+		
+		float flPitch = npc.GetPoseParameter(iPitch);
+		
+		if (ang[0] > 180.0) 
+			ang[0] -= 360.0;
+		
+		clamp(ang[0], -80.0, 80.0);
+		clamp(flPitch, -80.0, 80.0);
+		
+		npc.SetPoseParameter(iPitch, ApproachAngle(ang[0], flPitch, 1.0));
+		
 		if(!IsPlayerAlive(client))
 		{
 			npc.StopHealing();
@@ -1095,7 +1080,7 @@ public void PetMedicThink(int iEntity)
 			{
 				if(GetClientHealth(client) < GetEntProp(GetPlayerResourceEntity(), Prop_Send, "m_iMaxHealth", _, client))
 				{
-					SetEntityHealth(client, GetClientHealth(client) + 1);
+					SetEntityHealth(client, GetClientHealth(client) + 2);
 				}
 				
 				npc.NextHealTime = GetGameTime() + 0.5;
@@ -1135,6 +1120,44 @@ public void PetMedicThink(int iEntity)
 			npc.Pathing = true;
 		}
 	}
+}
+
+stock float[] WorldSpaceCenter(int entity)
+{
+	float vecPos[3];
+	SDKCall(g_hSDKWorldSpaceCenter, entity, vecPos);
+	
+	return vecPos;
+}
+
+stock float AngleNormalize(float angle)
+{
+	angle = angle - 360.0 * RoundToFloor(angle / 360.0);
+	while (angle > 180.0) angle -= 360.0;
+	while (angle < -180.0) angle += 360.0;
+	return angle;
+}
+
+stock float AngleDiff(float ang1, float ang2)
+{
+	return AngleNormalize(ang1-ang2);
+}
+
+stock float ApproachAngle(float target, float value, float speed)
+{
+	float delta = AngleDiff(target, value);
+	
+	if (speed < 0.0) 
+		speed = -speed;
+	
+	if (delta > speed) 
+		value += speed;
+	else if (delta < -speed) 
+		value -= speed;
+	else
+		value = target;
+	
+	return AngleNormalize(value);
 }
 
 stock int TF2_CreateParticle(int iEnt, const char[] attachment, const char[] particle)
@@ -1216,295 +1239,99 @@ public void OnEntityDestroyed(int entity)
 	}
 }
 
-stock void EstimateYaw(int entity)
-{
-	// Get the frame time.
-	float flDeltaTime = utils_GetFrameTime();
-	if ( flDeltaTime == 0.0)
-		return;
-	
-	// Get the player's velocity and angles.
-	float vecEstVelocity[3];
-	(view_as<BaseNPC>(entity)).GetVelocity(vecEstVelocity);
-	
-	float angles[3];
-	GetEntPropVector(entity, Prop_Data, "m_angRotation", angles);
-
-	// If we are not moving, sync up the feet and eyes slowly.
-	if ( vecEstVelocity[0] == 0.0 && vecEstVelocity[1] == 0.0 )
-	{
-		float flYawDelta = angles[1] - m_flEstimateYaw[entity];
-		flYawDelta = AngleNormalize( flYawDelta );
-
-		if ( flDeltaTime < 0.25 )
-		{
-			flYawDelta *= ( flDeltaTime * 4.0 );
-		}
-		else
-		{
-			flYawDelta *= flDeltaTime;
-		}
-
-		m_flEstimateYaw[entity] += flYawDelta;
-		AngleNormalize( m_flEstimateYaw[entity] );
-	}
-	else
-	{
-		m_flEstimateYaw[entity] = (ArcTangent2(vecEstVelocity[1], vecEstVelocity[0]) * 180.0 / FLOAT_PI);
-		m_flEstimateYaw[entity] = clamp(m_flEstimateYaw[entity], -180.0, 180.0);
-	}
-}
-
-stock float CalcMovementPlaybackRate(int entity, bool &bIsMoving)
-{
-	// Get the player's current velocity and speed.
-	float vecVelocity[3];
-	(view_as<BaseNPC>(entity)).GetVelocity(vecVelocity);
-
-	float flSpeed = GetVectorLength(vecVelocity, true); //SquareRoot(vecVelocity[0] * vecVelocity[0]) + (vecVelocity[1] * vecVelocity[1]);
-
-	// Determine if the player is considered moving or not.
-	bool bMoving = ( flSpeed > MOVING_MINIMUM_SPEED );
-
-	// Initialize the return data.
-	bIsMoving = false;
-	float flReturn = 1.0;
-
-	// If we are moving.
-	if ( bMoving )
-	{
-		//float flGroundSpeed = GetInterpolatedGroundSpeed();
-		float flGroundSpeed = GetCurrentMaxGroundSpeed(entity);
-		
-		if ( flGroundSpeed < 0.001 )
-		{
-			flReturn = 0.01;
-		}
-		else
-		{
-			// Note this gets set back to 1.0 if sequence changes due to ResetSequenceInfo below
-			flReturn = flSpeed / flGroundSpeed;
-			flReturn = clamp( flReturn, 0.01, 10.0);
-		}
-		
-		bIsMoving = true;
-	}
-	
-	return flReturn;
-}
-
-stock float GetCurrentMaxGroundSpeed(int entity)
-{
-	int iMoveX = utils_EntityLookupPoseParameter(entity, "move_x" );
-	int iMoveY = utils_EntityLookupPoseParameter(entity, "move_y" );
-	
-	float prevX = utils_EntityGetPoseParameter(entity, iMoveX);
-	float prevY = utils_EntityGetPoseParameter(entity, iMoveY);
-
-	float d = SquareRoot(prevX * prevX + prevY * prevY);
-	float newX, newY;
-	if (d == 0.0)
-	{ 
-		newX = 1.0;
-		newY = 0.0;
-	}
-	else
-	{
-		newX = prevX / d;
-		newY = prevY / d;
-	}
-	
-	utils_EntitySetPoseParameter(entity, iMoveX, newX);
-	utils_EntitySetPoseParameter(entity, iMoveY, newY);
-	
-	float speed = utils_EntitySequenceGroundSpeed(entity, GetEntProp(entity, Prop_Data, "m_nSequence"));
-	
-	utils_EntitySetPoseParameter(entity, iMoveX, prevX);
-	utils_EntitySetPoseParameter(entity, iMoveY, prevY);
-
-	return speed;
-}
-
-stock float AngleNormalize(float angle)
-{
-	angle = angle - 360.0 * RoundToFloor(angle / 360.0);
-	while (angle > 180.0) angle -= 360.0;
-	while (angle < -180.0) angle += 360.0;
-	return angle;
-}
-
-stock float clamp(float val, float minVal, float maxVal)
-{
-	if ( maxVal < minVal )
-		return maxVal;
-	else if( val < minVal )
-		return minVal;
-	else if( val > maxVal )
-		return maxVal;
-	else
-		return val;
-}
-
-stock float AngleDiff(float ang1, float ang2)
-{
-	return AngleNormalize(ang1-ang2);
-}
-
-stock float ApproachAngle(float target, float value, float speed)
-{
-	float delta = AngleDiff(target, value);
-	
-	if (speed < 0.0) 
-		speed = -speed;
-	
-	if (delta > speed) 
-		value += speed;
-	else if (delta < -speed) 
-		value -= speed;
-	else
-		value = target;
-	
-	return AngleNormalize(value);
-}
+public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b : a)); }
 
 public void Blend9Think(int iEntity)
 {
 	BaseNPC npc = view_as<BaseNPC>(iEntity);
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
 	
+	Address pLocomotion = npc.GetLocomotionInterface();
+	if(pLocomotion == Address_Null)
+		return;
+	
+	Address pStudioHdr = npc.GetStudioHdr(); 
+		
 	char MoveAnim[32], IdleAnim[32];
 	npc.MoveAnim(MoveAnim, sizeof(MoveAnim));
 	npc.IdleAnim(IdleAnim, sizeof(IdleAnim));
 	
-	float flMoveSpeed = npc.MoveSpeed;
+	float flMoveSpeed  = npc.MoveSpeed;
 	float flOutOfRange = npc.OutOfRange;
 	
-	float flOrigin[3], flAbsAngles[3];
-	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
-	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
-	
-	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-	
-	float flCPos[3];
-	GetClientAbsOrigin(client, flCPos);
-	
+	float flCPos[3];   flCPos   = WorldSpaceCenter(client);
+	float flOrigin[3]; flOrigin = WorldSpaceCenter(iEntity); 
+	float flAbsAngles[3]; GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+		
 	float flDistance = GetVectorDistance(flCPos, flOrigin);
 	
 	//We don't wanna fall too behind
-	if(flDistance >= flOutOfRange)
-	{
+	if(flDistance >= flOutOfRange){
 		SetEntPropFloat(iEntity, Prop_Data, "m_speed", flMoveSpeed * 2);
-		SetEntPropFloat(iEntity, Prop_Send, "m_flPlaybackRate", 2.0);
 	}
-	else
-	{
+	else{
 		SetEntPropFloat(iEntity, Prop_Data, "m_speed", flMoveSpeed);
-		SetEntPropFloat(iEntity, Prop_Send, "m_flPlaybackRate", 1.0);
 	}
 	
-	int iMoveX = utils_EntityLookupPoseParameter(iEntity, "move_x");
-	int iMoveY = utils_EntityLookupPoseParameter(iEntity, "move_y");
+	int m_iMoveX = SDKCall(g_hLookupPoseParameter, iEntity, pStudioHdr, "move_x");
+	int m_iMoveY = SDKCall(g_hLookupPoseParameter, iEntity, pStudioHdr, "move_y");
 	
-	// Get the estimated movement yaw.
-	EstimateYaw(iEntity);
+	if ( m_iMoveX < 0 || m_iMoveY < 0 )
+		return;
 	
-	// Get the view yaw.
-	float flAngle = AngleNormalize(flAbsAngles[1]);
-
-	// Calc side to side turning - the view vs. movement yaw.
-	float flYaw = flAngle - m_flEstimateYaw[iEntity];
-	flYaw = AngleNormalize( -flYaw );
-
-	// Get the current speed the character is running.
-	bool bIsMoving;
-	float flPlaybackRate = CalcMovementPlaybackRate(iEntity, bIsMoving);
+	int iCurrSequence = GetEntProp(iEntity, Prop_Send, "m_nSequence");
+	int iSequenceMove = SDKCall(g_hLookupSequence, pStudioHdr, MoveAnim);
+	int iSequenceIdle = SDKCall(g_hLookupSequence, pStudioHdr, IdleAnim);
 	
-	// Setup the 9-way blend parameters based on our speed and direction.
-	float vecCurrentMoveYaw[2] =  { 0.0, 0.0 };
-	
-	if (bIsMoving)
+	float flGroundSpeed = SDKCall(g_hGetGroundSpeed, pLocomotion);
+	if ( flGroundSpeed != 0.0 )
 	{
-		vecCurrentMoveYaw[0] = Cosine(DEG2RAD(flYaw)) * flPlaybackRate;
-		vecCurrentMoveYaw[1] = -Sine(DEG2RAD(flYaw))  * flPlaybackRate;
-		
-		npc.SetAnimation(MoveAnim);
-	}
-	else
-	{
-		npc.SetAnimation(IdleAnim);
-	}
-
-	// Set the 9-way blend movement pose parameters.
-	utils_EntitySetPoseParameter(iEntity, iMoveX, vecCurrentMoveYaw[0] * GetEntPropFloat(iEntity, Prop_Send, "m_flModelScale"));
-	utils_EntitySetPoseParameter(iEntity, iMoveY, vecCurrentMoveYaw[1] * GetEntPropFloat(iEntity, Prop_Send, "m_flModelScale"));
-}
-
-public void Blend8Think(int iEntity)
-{
-	BaseNPC npc = view_as<BaseNPC>(iEntity);
-
-	float flOrigin[3], flAbsAngles[3];
-	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
-	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
-	
-	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-	
-	float flOwnerPos[3];
-	GetClientAbsOrigin(client, flOwnerPos);
-	
-	char MoveAnim[32], IdleAnim[32];
-	npc.MoveAnim(MoveAnim, sizeof(MoveAnim));
-	npc.IdleAnim(IdleAnim, sizeof(IdleAnim));
-	
-	float flMoveSpeed = npc.MoveSpeed;
-	float flOutOfRange = npc.OutOfRange;
-	
-	float flDistance = GetVectorDistance(flOwnerPos, flOrigin);
-	
-	if (flDistance > 150.0)
-	{	
-		npc.SetAnimation(MoveAnim);
-		
-		//We don't wanna fall too behind
-		if(flDistance >= flOutOfRange)
+		if(!(GetEntityFlags(iEntity) & FL_ONGROUND))
 		{
-			SetEntPropFloat(iEntity, Prop_Data, "m_speed", flMoveSpeed * 2);
-			SetEntPropFloat(iEntity, Prop_Send, "m_flPlaybackRate", 2.0);
+			if(iCurrSequence != iSequenceMove)
+			{
+				SDKCall(g_hResetSequence, iEntity, iSequenceMove);
+			}
 		}
 		else
-		{
-			SetEntPropFloat(iEntity, Prop_Data, "m_speed", flMoveSpeed);
-			SetEntPropFloat(iEntity, Prop_Send, "m_flPlaybackRate", 1.0);
+		{			
+			if(iCurrSequence != iSequenceMove)
+			{
+				SDKCall(g_hResetSequence, iEntity, iSequenceMove);
+			}
 		}
+
+		float vecForward[3], vecRight[3], vecUp[3];
+		SDKCall(g_hGetVectors, iEntity, vecForward, vecRight, vecUp);
+		
+		float vecMotion[3]
+		SDKCall(g_hGetGroundMotionVector, pLocomotion, vecMotion);
+		
+		SDKCall(g_hSetPoseParameter, iEntity, pStudioHdr, m_iMoveX, GetVectorDotProduct(vecMotion, vecForward));
+		SDKCall(g_hSetPoseParameter, iEntity, pStudioHdr, m_iMoveY, GetVectorDotProduct(vecMotion, vecRight));
 	}
 	else
 	{
-		npc.SetAnimation(IdleAnim);
+		//Set Idle anim when not moving and if it's not already set
+		if(iCurrSequence != iSequenceIdle)
+		{
+			SDKCall(g_hSetPoseParameter, iEntity, pStudioHdr, m_iMoveX, 0.0);
+			SDKCall(g_hSetPoseParameter, iEntity, pStudioHdr, m_iMoveY, 0.0);	
+			
+			SDKCall(g_hResetSequence, iEntity, iSequenceIdle);
+		}
 	}
 	
-	float vecDir[3];
-	(view_as<BaseNPC>(iEntity)).GetVelocity(vecDir);
+	float m_flGroundSpeed = GetEntPropFloat(iEntity, Prop_Data, "m_flGroundSpeed");
+	if(m_flGroundSpeed != 0.0)
+	{
+		float flReturnValue = clamp(flGroundSpeed / m_flGroundSpeed, -4.0, 12.0);
+		
+		SetEntPropFloat(iEntity, Prop_Send, "m_flPlaybackRate", flReturnValue);
+	}
 	
-	//Strafe controller
-	float flMoveYaw = 0.0;
-	
-	if (vecDir[1] == 0 && vecDir[0] == 0)
-		flMoveYaw = 0.0;
-	
-	float yaw = ArcTangent2(vecDir[1], vecDir[0]);
-	
-	yaw = RAD2DEG(yaw);
-	
-	if (yaw < 0)
-		yaw += 360;
-	
-	flMoveYaw = yaw;
-	
-	float flDiff = AngleDiff(flMoveYaw, flAbsAngles[1]);
-	
-	int index = utils_EntityLookupPoseParameter(iEntity, "move_yaw");
-	float pose = utils_EntityGetPoseParameter(iEntity, index);
-	
-	utils_EntitySetPoseParameter(iEntity, index, ApproachAngle(flDiff, pose, 5.0));
+	SDKCall(g_hStudioFrameAdvance, iEntity);
+	SDKCall(g_hDispatchAnimEvents, iEntity, iEntity);
 }
 
 public Action Command_PetMenu(int client, int argc)
@@ -1519,9 +1346,7 @@ public Action Command_PetMenu(int client, int argc)
 		menu.AddItem("3", "Headcrab");
 		menu.AddItem("4", "Ghost");
 		menu.AddItem("5", "Robot Heavy");
-		menu.AddItem("6", "Classic Zombie");
-		menu.AddItem("7", "Alyx");
-		menu.AddItem("8", "Gman");
+		menu.AddItem("6", "Robot Engineer");
 		menu.Display(client, MENU_TIME_FOREVER);
 	}
 	
@@ -1542,7 +1367,7 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 			int iOwner = GetEntPropEnt(pet, Prop_Send, "m_hOwnerEntity");
 			if(iOwner > 0 && iOwner <= MaxClients && iOwner == param1)
 			{
-			//	AcceptEntityInput(pet, "Kill");
+				AcceptEntityInput(pet, "Kill");
 			}
 		}
 		
@@ -1614,18 +1439,10 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 			}
 			case 6:
 			{
-				PetZombie npc = new PetZombie(param1, flPos, flAng, "models/zombie/classic.mdl");
-				npc.Update();
-			}
-			case 7:
-			{
-				PetAlyx npc = new PetAlyx(param1, flPos, flAng, "models/alyx.mdl");
-				npc.Update();
-			}
-			case 8:
-			{
-				PetGman npc = new PetGman(param1, flPos, flAng, "models/gman.mdl");
-				npc.Update();
+				PetEngineer npc = new PetEngineer(param1, flPos, flAng);
+				npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_wrench.mdl", _, GetClientTeam(param1) - 2);
+				SetVariantString("1.0");
+				AcceptEntityInput(npc.Weapon, "SetModelScale");
 			}
 		}
 	}
@@ -1648,6 +1465,8 @@ public void OnMapStart()
 	PrecacheModel("models/props_halloween/ghost_no_hat_red.mdl");
 	
 	PrecacheModel("models/bots/heavy/bot_heavy.mdl");
+	
+	PrecacheModel("models/bots/engineer/bot_engineer.mdl");
 	
 	PrecacheModel("models/headcrabclassic.mdl");
 	PrecacheModel("models/bots/skeleton_sniper_boss/skeleton_sniper_boss.mdl");
@@ -1673,14 +1492,27 @@ public void OnPluginStart()
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	
+	//SDKCalls
+	//This call is used to get an entitys center position
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::WorldSpaceCenter");
+	PrepSDKCall_SetReturnInfo(SDKType_Vector, SDKPass_ByRef);
+	if ((g_hSDKWorldSpaceCenter = EndPrepSDKCall()) == null) SetFailState("Failed to create SDKCall for CBaseEntity::WorldSpaceCenter offset!");
+	
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseAnimating::StudioFrameAdvance");
 	if ((g_hStudioFrameAdvance = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::StudioFrameAdvance offset!"); 	
 
+	//ResetSequence( int nSequence );
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequence");
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
 	if ((g_hResetSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::ResetSequence signature!"); 
+
+	//ResetSequenceInfo( );
+//	StartPrepSDKCall(SDKCall_Entity);
+//	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequenceInfo");
+//	if((g_hResetSequenceInfo = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::ResetSequenceInfo");
 
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::MyNextBotPointer");
@@ -1698,109 +1530,143 @@ public void OnPluginStart()
 	if((g_hGetBodyInterface = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for INextBot::GetBodyInterface!");
 	
 	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "NextBotGroundLocomotion::Run");
-	if((g_hRun = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for NextBotGroundLocomotion::Run!");
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::Run");
+	if((g_hRun = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::Run!");
 
 	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "NextBotGroundLocomotion::Approach");
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::Approach");
 	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_ByRef);
 	PrepSDKCall_AddParameter(SDKType_Float, SDKPass_Plain);
-	if((g_hApproach = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for NextBotGroundLocomotion::Approach!");
+	if((g_hApproach = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::Approach!");
 	
 	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "NextBotGroundLocomotion::FaceTowards");
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::FaceTowards");
 	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_ByRef);
-	if((g_hFaceTowards = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for NextBotGroundLocomotion::FaceTowards!");
+	if((g_hFaceTowards = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::FaceTowards!");
 	
 	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "NextBotGroundLocomotion::Jump");
-	if((g_hJump = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for NextBotGroundLocomotion::Jump!");
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::Jump");
+	if((g_hJump = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::Jump!");
 
 	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "NextBotGroundLocomotion::GetVelocity");
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::GetVelocity");
 	PrepSDKCall_SetReturnInfo(SDKType_Vector, SDKPass_ByRef);
-	if((g_hGetVelocity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for NextBotGroundLocomotion::GetVelocity!");
+	if((g_hGetVelocity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::GetVelocity!");
 	
 	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "NextBotGroundLocomotion::SetVelocity");
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::SetVelocity");
 	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_ByRef);
-	if((g_hSetVelocity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for NextBotGroundLocomotion::SetVelocity!");
+	if((g_hSetVelocity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::SetVelocity!");
+	
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseAnimating::DispatchAnimEvents");
+	PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
+	if ((g_hDispatchAnimEvents = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::DispatchAnimEvents offset!"); 
+
+	//ILocomotion::GetGroundSpeed() 
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::GetGroundSpeed");
+	PrepSDKCall_SetReturnInfo(SDKType_Float, SDKPass_Plain);
+	if((g_hGetGroundSpeed = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::GetGroundSpeed!");
+	
+	//ILocomotion::GetGroundMotionVector() 
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::GetGroundMotionVector");
+	PrepSDKCall_SetReturnInfo(SDKType_Vector, SDKPass_ByRef);
+	if((g_hGetGroundMotionVector = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::GetGroundMotionVector!");
+	
+	//CBaseEntity::GetVectors(Vector*, Vector*, Vector*) 
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::GetVectors");
+	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_ByRef, _, VENCODE_FLAG_COPYBACK);
+	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_ByRef, _, VENCODE_FLAG_COPYBACK);
+	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_ByRef, _, VENCODE_FLAG_COPYBACK);
+	if((g_hGetVectors = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for CBaseEntity::GetVectors!");
+
+	//CBaseAnimating::GetPoseParameter(int iParameter)
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::GetPoseParameter");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_SetReturnInfo(SDKType_Float, SDKPass_Plain);
+	if((g_hGetPoseParameter = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::GetPoseParameter");
+	
+	//SetPoseParameter( CStudioHdr *pStudioHdr, int iParameter, float flValue );
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::SetPoseParameter");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_AddParameter(SDKType_Float, SDKPass_Plain);
+	PrepSDKCall_SetReturnInfo(SDKType_Float, SDKPass_Plain);
+	if((g_hSetPoseParameter = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::SetPoseParameter");
+	
+	//LookupPoseParameter( CStudioHdr *pStudioHdr, const char *szName );
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::LookupPoseParameter");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	if((g_hLookupPoseParameter = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::LookupPoseParameter");
+	
+	//-----------------------------------------------------------------------------
+	// Purpose: Looks up a sequence by sequence name first, then by activity name.
+	// Input  : label - The sequence name or activity name to look up.
+	// Output : Returns the sequence index of the matching sequence, or ACT_INVALID.
+	//-----------------------------------------------------------------------------
+	//LookupSequence( CStudioHdr *pStudioHdr, const char *label );
+	StartPrepSDKCall(SDKCall_Static);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "LookupSequence");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);	//pStudioHdr
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);		//label
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);	//return index
+	if((g_hLookupSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for LookupSequence");
 	
 	//PluginBot SDKCalls
-	
+	//Get NextBot pointer
 	StartPrepSDKCall(SDKCall_Raw);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "INextBotComponent::GetBot");
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 	if((g_hGetBot = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for INextBotComponent::GetBot!");
 	
+	//Get NextBot entity index
 	StartPrepSDKCall(SDKCall_Raw);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "INextBotComponent::GetEntity");
 	PrepSDKCall_SetReturnInfo(SDKType_CBaseEntity, SDKPass_Pointer);
 	if((g_hGetEntity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for INextBotComponent::GetEntity!");
 	
-	///
-		
-	int iOffset = GameConfGetOffset(hConf, "CTFBaseBossLocomotion::GetStepHeight");
-	if(iOffset == -1) SetFailState("Failed to get offset of CTFBaseBossLocomotion::GetStepHeight");
-	g_hGetStepHeight = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, NextBotGroundLocomotion_GetStepHeight);
-
-	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::GetGravity");
-	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::GetGravity");
-	g_hGetGravity = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, NextBotGroundLocomotion_GetGravity);
+	//DHooks
+	g_hGetStepHeight      = DHookCreateEx(hConf, "ILocomotion::GetStepHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetStepHeight);	
+	g_hGetGravity         = DHookCreateEx(hConf, "ILocomotion::GetGravity",         HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetGravity);	
+	g_hGetGroundNormal    = DHookCreateEx(hConf, "ILocomotion::GetGroundNormal",    HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, ILocomotion_GetGroundNormal);
+	g_hGetMaxAcceleration = DHookCreateEx(hConf, "ILocomotion::GetMaxAcceleration", HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetMaxAcceleration);
+	g_hGetSolidMask       = DHookCreateEx(hConf, "IBody::GetSolidMask",             HookType_Raw, ReturnType_Int,       ThisPointer_Address, IBody_GetSolidMask);
 	
-	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::GetFrictionForward");
-	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::GetFrictionForward");
-	g_hGetFrictionForward = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, NextBotGroundLocomotion_GetFriction);
-	
-	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::GetFrictionSideways");
-	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::GetFrictionSideways");
-	g_hGetFrictionSideways = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, NextBotGroundLocomotion_GetFriction);
-	
-	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::GetGroundNormal");
-	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::GetGroundNormal");
-	g_hGetGroundNormal = DHookCreate(iOffset, HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, NextBotGroundLocomotion_GetGroundNormal);
-	
-	iOffset = GameConfGetOffset(hConf, "NextBotGroundLocomotion::ShouldCollideWith");
-	if(iOffset == -1) SetFailState("Failed to get offset of NextBotGroundLocomotion::ShouldCollideWith");
-	g_hShouldCollideWith = DHookCreate(iOffset, HookType_Raw, ReturnType_Bool, ThisPointer_Address, NextBotGroundLocomotion_ShouldCollideWith);
+	g_hShouldCollideWith  = DHookCreateEx(hConf, "ILocomotion::ShouldCollideWith",  HookType_Raw, ReturnType_Bool,      ThisPointer_Address, ILocomotion_ShouldCollideWith);
 	DHookAddParam(g_hShouldCollideWith, HookParamType_CBaseEntity);
-	
-	iOffset = GameConfGetOffset(hConf, "IBody::GetSolidMask");
-	if(iOffset == -1) SetFailState("Failed to get offset of IBody::GetSolidMask");
-	g_hGetSolidMask = DHookCreate(iOffset, HookType_Raw, ReturnType_Int, ThisPointer_Address, IBody_GetSolidMask);
-	
-	iOffset = GameConfGetOffset(hConf, "IBody::StartActivity");
-	g_hStartActivity = DHookCreate(iOffset, HookType_Raw, ReturnType_Bool, ThisPointer_Address, IBody_StartActivity);
-	if (g_hStartActivity == null) SetFailState("Failed to create hook for IBody::StartActivity!");
-	
-	iOffset = GameConfGetOffset(hConf, "IBody::GetHullWidth");
-	if(iOffset == -1) SetFailState("Failed to get offset of IBody::GetHullWidth");
-	g_hGetHullWidth = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, IBody_GetHullWidth);
-	
-	iOffset = GameConfGetOffset(hConf, "IBody::GetStandHullHeight");
-	if(iOffset == -1) SetFailState("Failed to get offset of IBody::GetStandHullHeight");
-	g_hGetStandHullHeight = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, IBody_GetStandHullHeight);
-	
-	iOffset = GameConfGetOffset(hConf, "IBody::GetCrouchHullHeight");
-	if(iOffset == -1) SetFailState("Failed to get offset of IBody::GetCrouchHullHeight");
-	g_hGetCrouchHullHeight = DHookCreate(iOffset, HookType_Raw, ReturnType_Float, ThisPointer_Address, IBody_GetCrouchHullHeight);
 	
 	delete hConf;
 }
 
-public MRESReturn NextBotGroundLocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)
+Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType returntype, ThisPointerType thistype, DHookCallback callback)
+{
+	int iOffset = GameConfGetOffset(gc, key);
+	if(iOffset == -1)
+	{
+		SetFailState("Failed to get offset of %s", key);
+		return null;
+	}
+	
+	return DHookCreate(iOffset, hooktype, returntype, thistype, callback);
+}
+
+public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)
 {
 	DHookSetReturn(hReturn, 20.0);
 	return MRES_Supercede;
 }
 
-public MRESReturn NextBotGroundLocomotion_GetFriction(Address pThis, Handle hReturn, Handle hParams)
-{
-	DHookSetReturn(hReturn, 3.0);
-	return MRES_Supercede;
-}
+public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 1700.0); return MRES_Supercede; }
 
-public MRESReturn NextBotGroundLocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)
+public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)
 {
 	Address INextBot = SDKCall(g_hGetBot, pThis);
 	int iEntity = SDKCall(g_hGetEntity, INextBot);
@@ -1868,28 +1734,16 @@ public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hPar
 	return MRES_Supercede;
 }
 
-public MRESReturn NextBotGroundLocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)
+public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)
 {
 	DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } ));
 	return MRES_Supercede;
 }
 
-public MRESReturn NextBotGroundLocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)
+public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)
 {
-	int iEntity = DHookGetParam(hParams, 1);
-	if (IsValidEntity(iEntity))
-	{
-		char strClass[32];
-		GetEdictClassname(iEntity, strClass, sizeof(strClass));
-		
-		if(StrEqual(strClass, "player") || StrEqual(strClass, "func_door") || StrEqual(strClass, "func_breakable") || StrEqual(strClass, "tf_pumpkin_bomb") || StrContains(strClass, "obj_") != -1)
-		{
-			DHookSetReturn(hReturn, false);
-			return MRES_Supercede;
-		}
-	}
-	
-	return MRES_Ignored;
+	DHookSetReturn(hReturn, false);
+	return MRES_Supercede;
 }
 
 stock void CreateParticle(char[] particle, float pos[3], float ang[3])
