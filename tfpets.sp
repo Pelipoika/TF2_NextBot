@@ -25,6 +25,17 @@ enum ParticleAttachment
 	MAX_PATTACH_TYPES,
 };
 
+enum
+{
+	TF_AMMO_DUMMY = 0,
+	TF_AMMO_PRIMARY,
+	TF_AMMO_SECONDARY,
+	TF_AMMO_METAL,
+	TF_AMMO_GRENADES1,
+	TF_AMMO_GRENADES2,
+	TF_AMMO_COUNT,
+};
+
 //SDKCalls
 Handle g_hMyNextBotPointer;
 Handle g_hGetLocomotionInterface;
@@ -48,6 +59,10 @@ Handle g_hSetPoseParameter;
 Handle g_hGetPoseParameter;
 Handle g_hLookupSequence;
 Handle g_hSDKWorldSpaceCenter;
+
+//Player SDKCalls
+Handle g_hGetMaxAmmo;
+Handle g_hGetAmmoCount;
 
 //PluginBot DHooks
 Handle g_hGetEntity;
@@ -422,7 +437,7 @@ methodmap PetMedic < BaseNPC
 		brain.SetFloat("OutOfRange", 400.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_NPCSOLID|MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("run_SECONDARY");
 		pet.Pathing = true;
 		
@@ -557,7 +572,7 @@ methodmap PetTank < BaseNPC
 		brain.SetInt("LeftTrack", INVALID_ENT_REFERENCE);
 		brain.SetInt("RightTrack",  INVALID_ENT_REFERENCE);
 		
-		pet.CreatePather(client, 18.0, 72.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 72.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("movement");
 		pet.Pathing = true;
 		
@@ -630,10 +645,10 @@ methodmap PetCrab < BaseNPC
 		
 		//REQUIRED
 		Dynamic brain = pet.GetBrainInterface();
-		brain.SetString("JumpAnim", "jumpattack_broadcast");
+		brain.SetString("JumpAnim", "jumpattack_broadcast", 64);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 200.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 200.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("Idle01");
 		pet.Pathing = true;
 		
@@ -652,7 +667,7 @@ methodmap PetGhost < BaseNPC
 		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        GetEntPropFloat(client, Prop_Send, "m_flMaxspeed"));
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
-		pet.CreatePather(client, 18.0, 1000.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 1000.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.Pathing = true;
 		pet.SetAnimation("idle");
 		
@@ -806,7 +821,7 @@ methodmap PetHeavy < BaseNPC
 		brain.SetFloat("OutOfRange", 400.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("Stand_PRIMARY");
 		pet.Pathing = true;
 		
@@ -831,47 +846,6 @@ methodmap PetHeavy < BaseNPC
 	{
 		
 	}
-}
-
-methodmap PetEngineer < BaseNPC
-{
-	public PetEngineer(int client, float vecPos[3], float vecAng[3])
-	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/engineer/bot_engineer.mdl", "0.5");
-		
-		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        230.0);
-		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
-		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
-		
-		Dynamic brain = pet.GetBrainInterface();
-		
-		//REQUIRED IF YOU'RE GOING TO USE Blend9Think
-		brain.SetString("MoveAnim", "Run_MELEE");
-		brain.SetFloat("MoveSpeed", 115.0);
-		brain.SetString("IdleAnim", "Stand_MELEE");
-		brain.SetFloat("OutOfRange", 400.0);
-		//////////
-		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
-		pet.SetAnimation("Stand_PRIMARY");
-		pet.Pathing = true;
-		
-		//You can implement your own pet functions here.
-		SDKHook(pet.index, SDKHook_Think, PetHeavyThink);
-		//Controls 9 way blend animation managing
-		SDKHook(pet.index, SDKHook_Think, Blend9Think);
-		
-		return view_as<PetEngineer>(pet);
-	}
-	
-	//TODO: Metal collection behavior 
-	//-> If owner ammo low
-	//-> Find reachable ammo pack
-	//-> Go grab ammo pack on shoulder "run_BUILDING_DEPLOYED" & "stand_BUILDING_DEPLOYED"
-	//-> Bring to owner 
-	//-> When near owner, throw at owner
-	//-> Done
-	//https://github.com/danielmm8888/TF2Classic/blob/master/src/game/shared/Multiplayer/multiplayer_animstate.cpp#L1652
 }
 
 public void PetHeavyThink(int iEntity)
@@ -903,6 +877,338 @@ public void PetHeavyThink(int iEntity)
 			npc.Pathing = true;
 		}
 	}
+}
+
+methodmap PetEngineer < BaseNPC
+{
+	public PetEngineer(int client, float vecPos[3], float vecAng[3])
+	{
+		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/engineer/bot_engineer.mdl", "0.5");
+		
+		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        230.0);
+		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
+		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
+		
+		Dynamic brain = pet.GetBrainInterface();
+		
+		//REQUIRED IF YOU'RE GOING TO USE Blend9Think
+		brain.SetString("MoveAnim", "Run_MELEE", 64);
+		brain.SetFloat("MoveSpeed", 115.0);
+		brain.SetString("IdleAnim", "Stand_MELEE", 64);
+		brain.SetFloat("OutOfRange", 400.0);
+		//////////
+		
+		brain.SetBool("GettingAmmo", false);
+		brain.SetBool("CarryingAmmo", false);
+		brain.SetInt("AmmoRef", INVALID_ENT_REFERENCE);
+		brain.SetFloat("NextAmmoCheckTime", GetGameTime() + 5.0);
+		
+		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.SetAnimation("Stand_PRIMARY");
+		pet.Pathing = true;
+		
+		//You can implement your own pet functions here.
+		SDKHook(pet.index, SDKHook_Think, PetEngineerThink);
+		//Controls 9 way blend animation managing
+		SDKHook(pet.index, SDKHook_Think, Blend9Think);
+		
+		return view_as<PetEngineer>(pet);
+	}
+	
+	property int AmmoRef
+	{
+		public get()			
+		{
+			int ent = INVALID_ENT_REFERENCE;
+		
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				ent = EntRefToEntIndex(brain.GetInt("AmmoRef"));
+			}
+			
+			return ent;
+		}
+		public set(int AmmoRef)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetInt("AmmoRef", EntIndexToEntRef(AmmoRef));
+			}
+		}
+	}
+	
+	property bool IsGettingAmmo
+	{
+		public get()
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				return brain.GetBool("GettingAmmo");
+			}
+			
+			return false;
+		}
+		public set(bool state)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetBool("GettingAmmo", state);
+			}
+		}
+	}
+	
+	property bool IsCarryingAmmo
+	{
+		public get()
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				return brain.GetBool("CarryingAmmo");
+			}
+			
+			return false;
+		}
+		public set(bool state)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetBool("CarryingAmmo", state);
+			}
+		}
+	}
+	
+	property float NextAmmoCheckTime
+	{
+		public get()			
+		{
+			float NextAmmoCheckTime = GetGameTime();
+		
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				NextAmmoCheckTime = brain.GetFloat("NextAmmoCheckTime");
+			}
+			
+			return NextAmmoCheckTime;
+		}
+		public set(float NextAmmoCheckTime)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetFloat("NextAmmoCheckTime", NextAmmoCheckTime);
+			}
+		}
+	}
+	
+	public void StopAmmoHunt()
+	{
+		int client = GetEntPropEnt(this.index, Prop_Send, "m_hOwnerEntity");
+	
+		PF_SetGoalEntity(this.index, client);
+		
+		this.IsGettingAmmo = false;
+		this.Pathing = true;
+		
+		Dynamic brain = this.GetBrainInterface();
+		brain.SetString("MoveAnim", "Run_MELEE", 64);
+		brain.SetFloat("MoveSpeed", 115.0);
+		brain.SetString("IdleAnim", "Stand_MELEE", 64);
+		brain.SetFloat("OutOfRange", 400.0);
+		
+		AcceptEntityInput(this.Weapon, "Kill");
+		this.Weapon = this.EquipItem("head", "models/weapons/w_models/w_wrench.mdl", _, GetClientTeam(client) - 2);
+		
+		SetVariantString("1.0");
+		AcceptEntityInput(this.Weapon, "SetModelScale");
+	}
+}
+
+public void PetEngineerThink(int iEntity)
+{
+	//TODO: Metal collection behavior 
+	//-> If owner ammo low
+	//-> Find reachable ammo pack
+	//-> Go grab ammo pack on shoulder "run_BUILDING_DEPLOYED" & "stand_BUILDING_DEPLOYED"
+	//-> Bring to owner 
+	//-> When near owner, throw at owner
+	//-> Done
+	//https://github.com/danielmm8888/TF2Classic/blob/master/src/game/shared/Multiplayer/multiplayer_animstate.cpp#L1652
+
+	PetEngineer npc = view_as<PetEngineer>(iEntity);
+	npc.Update();
+	
+	float flOrigin[3], flAbsAngles[3];
+	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
+	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+	
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	
+	float flCPos[3];
+	GetClientAbsOrigin(client, flCPos);
+	
+	if(npc.NextAmmoCheckTime - GetGameTime() <= 0.0)
+	{
+		npc.NextAmmoCheckTime = GetGameTime() + 5.0;
+		
+		if(IsAmmoLow(client) && !npc.IsGettingAmmo && !npc.IsCarryingAmmo)
+		{
+			float flPos[3];
+			int ammo = FindNearestAmmoPack(iEntity, flPos);
+			
+			Dynamic brain = npc.GetBrainInterface();
+			brain.SetFloat("MoveSpeed", 300.0);
+			
+			PF_SetGoalVector(iEntity, flPos);
+			npc.Pathing = true;
+			npc.IsGettingAmmo = true;
+			npc.AmmoRef = ammo;
+		}
+	}
+	
+	if(npc.IsGettingAmmo)
+	{	
+		//Update ammo progression
+		int iAmmoTarget = npc.AmmoRef;
+		if(iAmmoTarget == INVALID_ENT_REFERENCE){
+			npc.StopAmmoHunt();
+		}
+		else if (GetEntProp(iAmmoTarget, Prop_Send, "m_fEffects") & 32)	{	//Ammo has been taken
+			npc.StopAmmoHunt();
+		}
+		else if(!npc.IsCarryingAmmo && npc.IsGettingAmmo)	//Getting / Got ammo
+		{
+			//Check for ammo distance
+			if (GetVectorDistance(WorldSpaceCenter(iAmmoTarget), WorldSpaceCenter(iEntity)) <= 50.0)
+			{			
+				//Grabbed some ammo, lets head back. 
+				npc.StopAmmoHunt();
+				npc.IsCarryingAmmo = true;
+				
+				Dynamic brain = npc.GetBrainInterface();
+				brain.SetString("MoveAnim", "run_BUILDING_DEPLOYED", 64);
+				brain.SetString("IdleAnim", "stand_BUILDING_DEPLOYED", 64);
+				brain.SetFloat("OutOfRange", 400.0);
+				
+				AcceptEntityInput(npc.Weapon, "Kill");
+				npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_toolbox.mdl", _, GetClientTeam(client) - 2);
+			}
+		}
+	}
+	else
+	{
+		float flDistance = GetVectorDistance(flCPos, flOrigin);
+		if(flDistance <= 150.0)	
+		{
+			if(npc.Pathing)
+			{
+				if(npc.IsCarryingAmmo)
+				{
+					float vecForward[3], vecRight[3], vecUp[3];
+					SDKCall(g_hGetVectors, iEntity, vecForward, vecRight, vecUp);
+					
+					float flStartPos[3]; flStartPos = WorldSpaceCenter(npc.index);
+					flStartPos[0] += vecForward[0] * 50.0;
+					flStartPos[1] += vecForward[1] * 50.0;
+					
+					int ammo = CreateEntityByName("tf_ammo_pack");
+					DispatchKeyValueVector(ammo, "origin", flStartPos);
+					DispatchKeyValueVector(ammo, "basevelocity", vecForward);
+					DispatchKeyValueVector(ammo, "velocity", vecForward);
+					DispatchKeyValue(ammo, "model", "models/weapons/w_models/w_toolbox.mdl");
+					DispatchKeyValue(ammo, "modelscale", "0.65");
+					DispatchSpawn(ammo);
+					
+					SetVariantString("OnUser1 !self:kill::60:1");
+					AcceptEntityInput(ammo, "AddOutput");
+					AcceptEntityInput(ammo, "FireUser1");
+					
+					npc.StopAmmoHunt();
+					npc.IsCarryingAmmo = false;
+					
+					npc.NextAmmoCheckTime = GetGameTime() + 30.0;
+				}
+			
+				npc.Pathing = false;
+			}
+		}
+		else
+		{
+			if(!npc.Pathing)
+			{
+				npc.Pathing = true;
+			}
+		}
+	}
+}
+
+stock int FindNearestAmmoPack(int robot, float flPosOut[3])
+{
+	float flPos[3];
+	GetEntPropVector(robot, Prop_Data, "m_vecOrigin", flPos);
+	
+	int iBestTarget = -1;
+	float flSmallestDistance = 5000.0;
+	
+	int index = -1;
+	while ((index = FindEntityByClassname(index, "item_ammopack_*")) != -1)
+	{
+		if (!(GetEntProp(index, Prop_Send, "m_fEffects") & 32))
+		{
+			float flAmmoPos[3];
+			GetEntPropVector(index, Prop_Data, "m_vecOrigin", flAmmoPos);
+			
+			float flDistance = GetVectorDistance(flPos, flAmmoPos);
+			
+			if (flDistance <= flSmallestDistance && PF_IsPathToVectorPossible(robot, flAmmoPos))
+			{
+				iBestTarget = index;
+				flPosOut = flAmmoPos;
+				flSmallestDistance = flDistance;
+			}
+		}
+	}
+	
+	return iBestTarget;
+}
+
+stock bool IsAmmoLow(int client)
+{
+	int activeweapon = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
+	if(!IsValidEntity(activeweapon))
+		return false;
+	
+	//Wrench check
+	char strClass[64];
+	GetEntityClassname(activeweapon, strClass, sizeof(strClass));
+	if(StrEqual(strClass, "tf_weapon_wrench", false) || StrEqual(strClass, "tf_weapon_robot_arm"))
+		return GetAmmoCount(client, TF_AMMO_METAL) <= 50;
+	
+	//Melee weapon check
+	if(GetPlayerWeaponSlot(client, 2) == activeweapon)
+		return false;
+	
+	int iMaxAmmo   = GetMaxAmmo(client, TF_AMMO_PRIMARY);
+	int iAmmoCount = GetAmmoCount(client, TF_AMMO_PRIMARY);
+	
+	float flAmmoPercentage = (float(iAmmoCount) / float(iMaxAmmo));
+	return flAmmoPercentage < 0.2;	//20% ammo is considered low.
+}
+
+stock int GetMaxAmmo(int client, int iAmmoType, int iClassNumber = -1)
+{
+	return SDKCall(g_hGetMaxAmmo, client, iAmmoType, iClassNumber);
+}
+
+stock int GetAmmoCount(int client, int iAmmoType)
+{
+	return SDKCall(g_hGetAmmoCount, client, iAmmoType);
 }
 
 public void PetGhostThink(int iEntity)
@@ -1037,37 +1343,53 @@ public void PetMedicThink(int iEntity)
 	PetMedic npc = view_as<PetMedic>(iEntity);
 	npc.Update();
 	
-	float flOrigin[3];    flOrigin = WorldSpaceCenter(iEntity);
 	float flAbsAngles[3]; GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
 	
 	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
 	
-	float flCPos[3];
-	GetClientAbsOrigin(client, flCPos);
+	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
+	float flCAng[3]; GetClientEyeAngles(client, flCAng);
 	
 	bool bHealing = npc.Healing;
 	float flNextHealTime =  npc.NextHealTime - GetGameTime();
 	
 	if(bHealing)
 	{
+		int iPitch = npc.LookupPoseParameter("body_pitch");
+		int iYaw   = npc.LookupPoseParameter("body_yaw");
+		if(iPitch < 0 || iYaw < 0)
+			return;		
+	
+		//Body pitch
 		float v[3], ang[3];
-		SubtractVectors(flOrigin, WorldSpaceCenter(client), v); 
+		SubtractVectors(WorldSpaceCenter(iEntity), WorldSpaceCenter(client), v); 
 		NormalizeVector(v, v);
 		GetVectorAngles(v, ang); 
 		
-		int iPitch = npc.LookupPoseParameter("body_pitch");
-		if(iPitch < 0)
-			return;
-		
 		float flPitch = npc.GetPoseParameter(iPitch);
 		
-		if (ang[0] > 180.0) 
-			ang[0] -= 360.0;
-		
-		clamp(ang[0], -80.0, 80.0);
-		clamp(flPitch, -80.0, 80.0);
-		
+		ang[0] = clamp(ang[0], -44.0, 89.0);
 		npc.SetPoseParameter(iPitch, ApproachAngle(ang[0], flPitch, 1.0));
+		
+/*		//Body yaw		
+		float flYaw   = npc.GetPoseParameter(iYaw);
+		float vecForward[3], vecRight[3], vecUp[3];
+		SDKCall(g_hGetVectors, iEntity, vecForward, vecRight, vecUp);
+		
+		float ownerDir[3]; SubtractVectors(WorldSpaceCenter(client), WorldSpaceCenter(iEntity), ownerDir);
+		NormalizeVector(ownerDir, ownerDir);
+		
+		float angle     = VecToYaw(vecForward);
+		float angleDiff = VecToYaw(ownerDir);
+		angleDiff = AngleDiff(angleDiff, angle + flYaw);
+		
+		angleDiff = -angleDiff;
+		angleDiff = AngleNormalize(angleDiff);
+		angleDiff = clamp(angleDiff, -44.0, 44.0);
+		
+		PrintToServer("%f %f", angleDiff, angle);
+		
+		npc.SetPoseParameter(iYaw, Approach(flYaw + angleDiff, flYaw, 2.0));*/
 		
 		if(!IsPlayerAlive(client))
 		{
@@ -1087,10 +1409,19 @@ public void PetMedicThink(int iEntity)
 			}
 		}
 		
-		npc.FaceTowards(flCPos);
+		npc.FaceTowards(WorldSpaceCenter(client));
+	}
+	else
+	{
+		//Aim head to regular pos
+		int iPitch = npc.LookupPoseParameter("body_pitch");
+		if(iPitch < 0)
+			return;
+		
+		npc.SetPoseParameter(iPitch, ApproachAngle(0.0, npc.GetPoseParameter(iPitch), 0.5));
 	}
 	
-	float flDistance = GetVectorDistance(flCPos, flOrigin);
+	float flDistance = GetVectorDistance(flCPos, WorldSpaceCenter(iEntity));
 	if(flDistance <= 150.0)	
 	{
 		if(npc.Pathing)
@@ -1130,34 +1461,97 @@ stock float[] WorldSpaceCenter(int entity)
 	return vecPos;
 }
 
-stock float AngleNormalize(float angle)
+//Computes the floating-point remainder of the division operation x/y.
+stock float fmodf(float num, float denom)
 {
-	angle = angle - 360.0 * RoundToFloor(angle / 360.0);
-	while (angle > 180.0) angle -= 360.0;
-	while (angle < -180.0) angle += 360.0;
+	return num - denom * RoundToFloor(num / denom);
+}
+
+stock float operator%(float oper1, float oper2)
+{
+	return fmodf(oper1, oper2);
+}
+
+stock float VecToYaw(float vec[3])
+{
+	if(vec[1] == 0.0 && vec[0] == 0.0)
+		return 0.0;
+		
+	float yaw = ArcTangent2(vec[1], vec[0]);
+	yaw = RAD2DEG(yaw);
+	
+	if(yaw < 0)
+		yaw += 360;
+		
+	return yaw;
+}
+
+stock float AngleDiff( float destAngle, float srcAngle )
+{
+	float delta = fmodf(destAngle - srcAngle, 360.0);
+	if ( destAngle > srcAngle )
+	{
+		if ( delta >= 180 )
+			delta -= 360;
+	}
+	else
+	{
+		if ( delta <= -180 )
+			delta += 360;
+	}
+	
+	return delta;
+}
+
+stock float AngleNormalize( float angle )
+{
+	angle = fmodf(angle, 360.0);
+	if (angle > 180) 
+	{
+		angle -= 360;
+	}
+	if (angle < -180)
+	{
+		angle += 360;
+	}
 	return angle;
 }
 
-stock float AngleDiff(float ang1, float ang2)
-{
-	return AngleNormalize(ang1-ang2);
-}
-
-stock float ApproachAngle(float target, float value, float speed)
+stock float ApproachAngle( float target, float value, float speed )
 {
 	float delta = AngleDiff(target, value);
 	
-	if (speed < 0.0) 
+	// Speed is assumed to be positive
+	if ( speed < 0 )
 		speed = -speed;
 	
-	if (delta > speed) 
+	if ( delta < -180 )
+		delta += 360;
+	else if ( delta > 180 )
+		delta -= 360;
+	
+	if ( delta > speed )
 		value += speed;
-	else if (delta < -speed) 
+	else if ( delta < -speed )
 		value -= speed;
-	else
+	else 
 		value = target;
 	
-	return AngleNormalize(value);
+	return value;
+}
+
+stock float Approach( float target, float value, float speed )
+{
+	float delta = target - value;
+	
+	if ( delta > speed )
+		value += speed;
+	else if ( delta < -speed )
+		value -= speed;
+	else 
+		value = target;
+	
+	return value;
 }
 
 stock int TF2_CreateParticle(int iEnt, const char[] attachment, const char[] particle)
@@ -1252,9 +1646,11 @@ public void Blend9Think(int iEntity)
 	
 	Address pStudioHdr = npc.GetStudioHdr(); 
 		
-	char MoveAnim[32], IdleAnim[32];
+	char MoveAnim[64], IdleAnim[64];
 	npc.MoveAnim(MoveAnim, sizeof(MoveAnim));
 	npc.IdleAnim(IdleAnim, sizeof(IdleAnim));
+	
+	PrintToServer("MoveAnim %s IdleAnim %s", MoveAnim, IdleAnim);
 	
 	float flMoveSpeed  = npc.MoveSpeed;
 	float flOutOfRange = npc.OutOfRange;
@@ -1467,6 +1863,7 @@ public void OnMapStart()
 	PrecacheModel("models/bots/heavy/bot_heavy.mdl");
 	
 	PrecacheModel("models/bots/engineer/bot_engineer.mdl");
+	PrecacheModel("models/weapons/w_models/w_toolbox.mdl");
 	
 	PrecacheModel("models/headcrabclassic.mdl");
 	PrecacheModel("models/bots/skeleton_sniper_boss/skeleton_sniper_boss.mdl");
@@ -1488,9 +1885,25 @@ public void OnMapStart()
 
 public void OnPluginStart()
 {
-	RegAdminCmd("sm_pets", Command_PetMenu, ADMFLAG_ROOT);
+	RegAdminCmd("sm_pets", Command_PetMenu, ADMFLAG_BAN);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
+	
+	//CTFPlayer
+	StartPrepSDKCall(SDKCall_Player);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CTFPlayer::GetMaxAmmo");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	if ((g_hGetMaxAmmo = EndPrepSDKCall()) == null) SetFailState("Failed to create SDKCall for CTFPlayer::GetMaxAmmo!");
+	
+	
+	StartPrepSDKCall(SDKCall_Player);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CTFPlayer::GetAmmoCount");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	if ((g_hGetAmmoCount = EndPrepSDKCall()) == null) SetFailState("Failed to create SDKCall for CTFPlayer::GetAmmoCount offset!");
+	
 	
 	//SDKCalls
 	//This call is used to get an entitys center position
@@ -1682,7 +2095,7 @@ public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle h
 
 public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)
 {
-	DHookSetReturn(hReturn, 0x0201300B);
+	DHookSetReturn(hReturn, MASK_NPCSOLID | MASK_PLAYERSOLID);
 	return MRES_Supercede;
 }
 

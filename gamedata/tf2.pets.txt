@@ -27,22 +27,35 @@
 			}
 			"CBaseAnimating::GetPoseParameter" //( int iParameter ) "aim_pitch" 2nd in xrefs
 			{
-				"windows"	"\x55\x8B\xEC\x57\x8B\x7D\x08\x85\xFF\x75\x2A\x33\xC0\x5F\x5D\xC2\x08\x00"
-				"linux"		"@_ZN14CBaseAnimating19LookupPoseParameterEP10CStudioHdrPKc"
+				"windows"	"\x55\x8B\xEC\x56\x8B\xF1\x57\x80\xBE\x41\x03\x00\x00\x00\x75\x2A\x83\xBE\x6C\x04\x00\x00\x00\x75\x2A\xE8\x2A\x2A\x2A\x2A\x85\xC0\x74\x2A\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x8B\xBE\x6C\x04\x00\x00"
+				"linux"		"@_ZN14CBaseAnimating16GetPoseParameterEi"
 			}
 			"LookupSequence" //( CStudioHdr *pstudiohdr, const char *label ) "spew_bars_context" NOTE: NOT CBaseAnimating::LookupSequence
 			{
 				"windows"	"\x55\x8B\xEC\x56\x8B\x75\x08\x85\xF6\x75\x2A\x33\xC0\x5E\x5D\xC3\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x53"
 				"linux"		"@_Z14LookupSequenceP10CStudioHdrPKc"
 			}
+			
+			"CTFPlayer::GetMaxAmmo" //(int AmmoType, int idk)
+			{
+				"windows"	"\x55\x8B\xEC\x8B\x45\x0C\x53\x8B\xD9\x56\x57\x83\xF8\xFF\x75\x2A\xFF\xB3\x58\x20\x00\x00"
+				"linux"		"@_ZN9CTFPlayer10GetMaxAmmoEii"
+			}
 		}
 		"Offsets"
 		{
+			"CTFPlayer::GetAmmoCount" //(int)
+			{		
+				"windows"	"257"		
+				"linux"		"258"
+			}
+			
 			"m_bResolveCollisions"	//2492
 			{
 				"windows"	"28"
 				"linux"		"24"
 			}
+			
 			"CBaseEntity::WorldSpaceCenter"		
 			{		
 				"windows"	"149"		
@@ -53,7 +66,6 @@
 				"windows"	"138"
 				"linux"		"140"
 			}
-			
 			"CBaseEntity::MyNextBotPointer"
 			{
 				"windows"	"72"
