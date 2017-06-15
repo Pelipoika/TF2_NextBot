@@ -1120,8 +1120,6 @@ public void PetEngineerThink(int iEntity)
 					ScaleVector(vecForward, 50.0);
 					vecForward[2] += 50.0;
 					
-					PrintToChatAll("%f %f %f", vecForward[0], vecForward[1], vecForward[2]);
-					
 					int ammo = CreateEntityByName("tf_ammo_pack");
 					DispatchKeyValueVector(ammo, "origin", flStartPos);
 					DispatchKeyValueVector(ammo, "angles", flAbsAngles);
@@ -1658,8 +1656,6 @@ public void Blend9Think(int iEntity)
 	npc.MoveAnim(MoveAnim, sizeof(MoveAnim));
 	npc.IdleAnim(IdleAnim, sizeof(IdleAnim));
 	
-	PrintToServer("MoveAnim %s IdleAnim %s", MoveAnim, IdleAnim);
-	
 	float flMoveSpeed  = npc.MoveSpeed;
 	float flOutOfRange = npc.OutOfRange;
 	
@@ -1740,7 +1736,7 @@ public void Blend9Think(int iEntity)
 
 public Action Command_PetMenu(int client, int argc)
 {
-	if(client > 0 && client <= MaxClients && IsClientInGame(client))
+	if(client > 0 && client <= MaxClients && IsClientInGame(client) && GetClientTeam(client) == 2 || GetClientTeam(client) == 3)
 	{
 		Menu menu = new Menu(PetSelectHandler);
 		menu.SetTitle("Pets");
@@ -1893,7 +1889,7 @@ public void OnMapStart()
 
 public void OnPluginStart()
 {
-	RegAdminCmd("sm_pets", Command_PetMenu, ADMFLAG_BAN);
+	RegAdminCmd("sm_pets", Command_PetMenu, 0);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	
