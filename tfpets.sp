@@ -1117,13 +1117,21 @@ public void PetEngineerThink(int iEntity)
 					flStartPos[0] += vecForward[0] * 50.0;
 					flStartPos[1] += vecForward[1] * 50.0;
 					
+					ScaleVector(vecForward, 50.0);
+					vecForward[2] += 50.0;
+					
+					PrintToChatAll("%f %f %f", vecForward[0], vecForward[1], vecForward[2]);
+					
 					int ammo = CreateEntityByName("tf_ammo_pack");
 					DispatchKeyValueVector(ammo, "origin", flStartPos);
+					DispatchKeyValueVector(ammo, "angles", flAbsAngles);
 					DispatchKeyValueVector(ammo, "basevelocity", vecForward);
 					DispatchKeyValueVector(ammo, "velocity", vecForward);
 					DispatchKeyValue(ammo, "model", "models/weapons/w_models/w_toolbox.mdl");
 					DispatchKeyValue(ammo, "modelscale", "0.65");
 					DispatchSpawn(ammo);
+					
+					TeleportEntity(ammo, NULL_VECTOR, NULL_VECTOR, vecForward);
 					
 					SetVariantString("OnUser1 !self:kill::60:1");
 					AcceptEntityInput(ammo, "AddOutput");
