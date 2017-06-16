@@ -148,8 +148,8 @@ methodmap BaseNPC __nullable__
 		Format(strName, sizeof(strName), "basenpc_%x", EntIndexToEntRef(npc));
 		
 		Dynamic brain = Dynamic();
-		brain.SetBool ("Pathing", false);
-		brain.SetInt  ("Weapon",  INVALID_ENT_REFERENCE);
+		brain.SetBool("Pathing", false);
+		brain.SetInt ("Weapon",  INVALID_ENT_REFERENCE);
 		brain.SetName(strName);
 		
 		return view_as<BaseNPC>(npc);
@@ -168,7 +168,13 @@ methodmap BaseNPC __nullable__
 		char strName[64];
 		Format(strName, sizeof(strName), "basenpc_%x", EntIndexToEntRef(this.index));
 		
-		return Dynamic.FindByName(strName);
+		Dynamic brain = Dynamic.FindByName(strName);
+		if(!brain.IsValid)
+		{
+			AcceptEntityInput(this.index, "Kill");
+		}
+		
+		return brain;
 	}
 	
 	public Address GetLocomotionInterface()
@@ -1673,6 +1679,7 @@ public void OnEntityDestroyed(int entity)
 			StopSound(npc.index, SNDCHAN_AUTO, ")mvm/mvm_tank_loop.wav");
 			
 			brain.Dispose();
+			brain = INVALID_DYNAMIC_OBJECT;
 		}
 	}
 }
@@ -2138,7 +2145,7 @@ Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType 
 
 public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 20.0);	return MRES_Supercede; }
 public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 1700.0); return MRES_Supercede; }
-public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 1.5);    return MRES_Supercede; }
+public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
 
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)
 {
