@@ -101,6 +101,11 @@
 				"windows"	"49"
 				"linux"		"50"
 			}
+			"INextBot::Upkeep"
+			{
+				"windows"	"44"
+				"linux"		"45"
+			}
 			"INextBotComponent::GetBot"
 			{
 				"windows"	"45"
@@ -185,6 +190,21 @@
 			{
 				"windows"	"63"
 				"linux"		"64"
+			}
+			"ILocomotion::IsStuck"
+			{
+				"windows"	"95"
+				"linux"		"96"
+			}
+			"ILocomotion::StuckMonitor"
+			{
+				"windows"	"101"
+				"linux"		"102"
+			}
+			"ILocomotion::ClearStuckStatus"
+			{
+				"windows"	"97"
+				"linux"		"98"
 			}
 			"ILocomotion::SetVelocity"
 			{

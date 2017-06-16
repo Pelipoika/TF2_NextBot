@@ -60,6 +60,11 @@ Handle g_hGetPoseParameter;
 Handle g_hLookupSequence;
 Handle g_hSDKWorldSpaceCenter;
 
+//Stuck detection
+Handle g_hStuckMonitor;
+Handle g_hClearStuckStatus;
+Handle g_hIsStuck;
+
 //Player SDKCalls
 Handle g_hGetMaxAmmo;
 Handle g_hGetAmmoCount;
@@ -69,7 +74,7 @@ Handle g_hGetEntity;
 Handle g_hGetBot;
 
 //DHooks
-//Handle g_hGetFrictionSideways;
+Handle g_hGetFrictionSideways;
 //Handle g_hGetFrictionForward;
 Handle g_hGetStepHeight;
 Handle g_hGetGravity;
@@ -114,7 +119,7 @@ methodmap BaseNPC __nullable__
 		DHookRaw(g_hGetGravity,          true, pLocomotion);
 		DHookRaw(g_hShouldCollideWith,   true, pLocomotion);
 		DHookRaw(g_hGetMaxAcceleration,  true, pLocomotion);
-	//	DHookRaw(g_hGetFrictionSideways, true, pLocomotion);
+		DHookRaw(g_hGetFrictionSideways, true, pLocomotion);
 	//	DHookRaw(g_hGetFrictionForward,  true, pLocomotion);
 		
 		if(bGroundNormal)
@@ -136,7 +141,7 @@ methodmap BaseNPC __nullable__
 		SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
 		SetEntProp(npc, Prop_Data, "m_takedamage", 0);
 		SetEntProp(npc, Prop_Data, "m_nSolidType", 0); 
-		
+
 		ActivateEntity(npc);
 		
 		char strName[64];
@@ -362,6 +367,7 @@ methodmap BaseNPC __nullable__
 		PF_EnableCallback(this.index, PFCB_Approach, PluginBot_Approach);
 		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge, PluginBot_Jump);
 		PF_EnableCallback(this.index, PFCB_GetPathCost, PluginBot_PathCost);
+		PF_EnableCallback(this.index, PFCB_PathFailed, PluginBot_PathFailed);
 	}
 	
 	public void Approach(const float vecGoal[3])
@@ -383,6 +389,15 @@ methodmap BaseNPC __nullable__
 	{
 		SDKCall(g_hStudioFrameAdvance, this.index);
 		SDKCall(g_hRun,                this.GetLocomotionInterface());
+		SDKCall(g_hStuckMonitor,       this.GetLocomotionInterface());
+		
+		bool bStuck = SDKCall(g_hIsStuck, this.GetLocomotionInterface());
+		if(bStuck)
+		{
+		//	PrintToChatAll("We're stuck!")
+			SDKCall(g_hClearStuckStatus, this.GetLocomotionInterface(), "Un-Stuck");
+			TeleportEntity(this.index, WorldSpaceCenter(GetEntPropEnt(this.index, Prop_Send, "m_hOwnerEntity")), NULL_VECTOR, NULL_VECTOR);
+		}
 	}
 	
 	public void GetVelocity(float vecOut[3])
@@ -724,6 +739,17 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	return from_area.GetCostSoFar() + cost;
 }
 
+public void PluginBot_PathFailed(int bot_entidx)
+{
+	PrintToServer("PluginBot_PathFailed");
+	
+	float vecGoal[3];
+	if (PF_GetFutureSegment(bot_entidx, 0, vecGoal))
+	{
+		TeleportEntity(bot_entidx, vecGoal, NULL_VECTOR, NULL_VECTOR);
+	}
+}
+
 public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float dir[2])
 {
 	bool bOnGround = (GetEntPropEnt(bot_entidx, Prop_Data, "m_hGroundEntity") != -1);
@@ -909,7 +935,7 @@ methodmap PetEngineer < BaseNPC
 		brain.SetInt("AmmoRef", INVALID_ENT_REFERENCE);
 		brain.SetFloat("NextAmmoCheckTime", GetGameTime() + 5.0);
 		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 3.0);
+		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("Stand_PRIMARY");
 		pet.Pathing = true;
 		
@@ -1092,7 +1118,7 @@ public void PetEngineerThink(int iEntity)
 		{
 			//Check for ammo distance
 			if (GetVectorDistance(WorldSpaceCenter(iAmmoTarget), WorldSpaceCenter(iEntity)) <= 50.0)
-			{			
+			{
 				//Grabbed some ammo, lets head back. 
 				npc.StopAmmoHunt();
 				npc.IsCarryingAmmo = true;
@@ -1135,6 +1161,7 @@ public void PetEngineerThink(int iEntity)
 					DispatchKeyValue(ammo, "modelscale", "0.65");
 					DispatchSpawn(ammo);
 					
+					SetEntProp(ammo, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
 					TeleportEntity(ammo, NULL_VECTOR, NULL_VECTOR, vecForward);
 					
 					SetVariantString("OnUser1 !self:kill::60:1");
@@ -1166,7 +1193,7 @@ stock int FindNearestAmmoPack(int robot, float flPosOut[3])
 	GetEntPropVector(robot, Prop_Data, "m_vecOrigin", flPos);
 	
 	int iBestTarget = -1;
-	float flSmallestDistance = 5000.0;
+	float flSmallestDistance = 999999.0;
 	
 	int index = -1;
 	while ((index = FindEntityByClassname(index, "item_ammopack_*")) != -1)
@@ -1895,7 +1922,7 @@ public void OnMapStart()
 
 public void OnPluginStart()
 {
-	RegAdminCmd("sm_pets", Command_PetMenu, ADMFLAG_BAN);
+	RegAdminCmd("sm_pets", Command_PetMenu, 0);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	
@@ -1906,7 +1933,6 @@ public void OnPluginStart()
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 	if ((g_hGetMaxAmmo = EndPrepSDKCall()) == null) SetFailState("Failed to create SDKCall for CTFPlayer::GetMaxAmmo!");
-	
 	
 	StartPrepSDKCall(SDKCall_Player);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CTFPlayer::GetAmmoCount");
@@ -1998,6 +2024,23 @@ public void OnPluginStart()
 	PrepSDKCall_SetReturnInfo(SDKType_Vector, SDKPass_ByRef);
 	if((g_hGetGroundMotionVector = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::GetGroundMotionVector!");
 	
+	//ILocomotion::IsStuck()
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::IsStuck");
+	PrepSDKCall_SetReturnInfo(SDKType_Bool, SDKPass_Plain);
+	if((g_hIsStuck = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::IsStuck!");
+	
+	//ILocomotion::ClearStuckStatus(char const* reason)
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::IsStuck");
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
+	if((g_hClearStuckStatus = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::ClearStuckStatus!");
+	
+	//ILocomotion::StuckMonitor
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::StuckMonitor");
+	if((g_hStuckMonitor = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::StuckMonitor!");
+	
 	//CBaseEntity::GetVectors(Vector*, Vector*, Vector*) 
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::GetVectors");
@@ -2057,6 +2100,7 @@ public void OnPluginStart()
 	if((g_hGetEntity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for INextBotComponent::GetEntity!");
 	
 	//DHooks
+	g_hGetFrictionSideways = DHookCreateEx(hConf, "ILocomotion::GetFrictionSideways",HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetFrictionSideways);
 	g_hGetStepHeight       = DHookCreateEx(hConf, "ILocomotion::GetStepHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetStepHeight);	
 	g_hGetGravity          = DHookCreateEx(hConf, "ILocomotion::GetGravity",         HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetGravity);	
 	g_hGetGroundNormal     = DHookCreateEx(hConf, "ILocomotion::GetGroundNormal",    HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, ILocomotion_GetGroundNormal);
@@ -2087,13 +2131,9 @@ Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType 
 	return DHookCreate(iOffset, hooktype, returntype, thistype, callback);
 }
 
-public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)
-{
-	DHookSetReturn(hReturn, 20.0);
-	return MRES_Supercede;
-}
-
-public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 1700.0); return MRES_Supercede; }
+public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 20.0);	return MRES_Supercede; }
+public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 1700.0); return MRES_Supercede; }
+public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 1.5);    return MRES_Supercede; }
 
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)
 {
@@ -2117,38 +2157,46 @@ public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hPara
 
 public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)
 {
-	DHookSetReturn(hReturn, 5.0);
+//	PrintToServer("IBody_GetHullWidth %f", DHookGetReturn(hReturn));
+	
+	DHookSetReturn(hReturn, 13.0);
 	return MRES_Supercede;
 }
 
 public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)
 {
-	DHookSetReturn(hReturn, 68.0);
+//	PrintToServer("IBody_GetStandHullHeight %f", DHookGetReturn(hReturn));
+	
+	DHookSetReturn(hReturn, 34.0);
 	return MRES_Supercede;
 }
 
 public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)
 {
-	DHookSetReturn(hReturn, 68.0);
+//	PrintToServer("IBody_GetHullHeight %f", DHookGetReturn(hReturn));
+	
+	DHookSetReturn(hReturn, 34.0);
 	return MRES_Supercede;
 }
 
 public MRESReturn IBody_GetCrouchHullHeight(Address pThis, Handle hReturn, Handle hParams)
 {
-	DHookSetReturn(hReturn, 32.0);
+//	PrintToServer("IBody_GetCrouchHullHeight %f", DHookGetReturn(hReturn));
+	
+	DHookSetReturn(hReturn, 16.0);
 	return MRES_Supercede;
 }
 
 public MRESReturn IBody_GetHullMins(Address pThis, Handle hReturn, Handle hParams)
 {
-    DHookSetReturnVector(hReturn, view_as<float>( { -5.0, -5.0, 0.0 } ));
-    return MRES_Supercede;
+	DHookSetReturnVector(hReturn, view_as<float>( { -6.5, -6.5, 0.0 } ));
+	return MRES_Supercede;
 }
 
 public MRESReturn IBody_GetHullMaxs(Address pThis, Handle hReturn, Handle hParams)
 {
-    DHookSetReturnVector(hReturn, view_as<float>( { 5.0, 5.0, 68.0 } ));
-    return MRES_Supercede;
+	DHookSetReturnVector(hReturn, view_as<float>( { 6.5, 6.5, 68.0 } ));
+	return MRES_Supercede;
 }
 
 public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hParams)
