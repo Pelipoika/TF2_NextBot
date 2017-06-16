@@ -1889,7 +1889,7 @@ public void OnMapStart()
 
 public void OnPluginStart()
 {
-	RegAdminCmd("sm_pets", Command_PetMenu, 0);
+	RegAdminCmd("sm_pets", Command_PetMenu, ADMFLAG_BAN);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	
