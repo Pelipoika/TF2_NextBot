@@ -77,9 +77,12 @@ Handle g_hGetGroundNormal;
 Handle g_hShouldCollideWith;
 Handle g_hGetSolidMask;
 //Handle g_hStartActivity;
-//Handle g_hGetHullWidth;
-//Handle g_hGetStandHullHeight;
-//Handle g_hGetCrouchHullHeight;
+Handle g_hGetHullWidth;
+Handle g_hGetHullHeight;
+Handle g_hGetStandHullHeight;
+Handle g_hGetCrouchHullHeight;
+Handle g_hGetHullMins;
+Handle g_hGetHullMaxs;
 
 public Plugin myinfo = 
 {
@@ -121,9 +124,12 @@ methodmap BaseNPC __nullable__
 		
 		DHookRaw(g_hGetSolidMask,        true, pBody);
 	//	DHookRaw(g_hStartActivity,       true, pBody);
-	//	DHookRaw(g_hGetHullWidth,        true, pBody);
-	//	DHookRaw(g_hGetStandHullHeight,  true, pBody);
-	//	DHookRaw(g_hGetCrouchHullHeight, true, pBody);
+		DHookRaw(g_hGetHullWidth,        true, pBody);
+		DHookRaw(g_hGetHullHeight,       true, pBody);
+		DHookRaw(g_hGetStandHullHeight,  true, pBody);
+		DHookRaw(g_hGetCrouchHullHeight, true, pBody);
+		DHookRaw(g_hGetHullMins,         true, pBody);
+		DHookRaw(g_hGetHullMaxs,         true, pBody);
 		
 		SetEntityFlags(npc, FL_NOTARGET);
 		
@@ -903,7 +909,7 @@ methodmap PetEngineer < BaseNPC
 		brain.SetInt("AmmoRef", INVALID_ENT_REFERENCE);
 		brain.SetFloat("NextAmmoCheckTime", GetGameTime() + 5.0);
 		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 3.0);
 		pet.SetAnimation("Stand_PRIMARY");
 		pet.Pathing = true;
 		
@@ -2051,14 +2057,20 @@ public void OnPluginStart()
 	if((g_hGetEntity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for INextBotComponent::GetEntity!");
 	
 	//DHooks
-	g_hGetStepHeight      = DHookCreateEx(hConf, "ILocomotion::GetStepHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetStepHeight);	
-	g_hGetGravity         = DHookCreateEx(hConf, "ILocomotion::GetGravity",         HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetGravity);	
-	g_hGetGroundNormal    = DHookCreateEx(hConf, "ILocomotion::GetGroundNormal",    HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, ILocomotion_GetGroundNormal);
-	g_hGetMaxAcceleration = DHookCreateEx(hConf, "ILocomotion::GetMaxAcceleration", HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetMaxAcceleration);
-	g_hGetSolidMask       = DHookCreateEx(hConf, "IBody::GetSolidMask",             HookType_Raw, ReturnType_Int,       ThisPointer_Address, IBody_GetSolidMask);
-	
-	g_hShouldCollideWith  = DHookCreateEx(hConf, "ILocomotion::ShouldCollideWith",  HookType_Raw, ReturnType_Bool,      ThisPointer_Address, ILocomotion_ShouldCollideWith);
+	g_hGetStepHeight       = DHookCreateEx(hConf, "ILocomotion::GetStepHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetStepHeight);	
+	g_hGetGravity          = DHookCreateEx(hConf, "ILocomotion::GetGravity",         HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetGravity);	
+	g_hGetGroundNormal     = DHookCreateEx(hConf, "ILocomotion::GetGroundNormal",    HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, ILocomotion_GetGroundNormal);
+	g_hGetMaxAcceleration  = DHookCreateEx(hConf, "ILocomotion::GetMaxAcceleration", HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetMaxAcceleration);
+	g_hShouldCollideWith   = DHookCreateEx(hConf, "ILocomotion::ShouldCollideWith",  HookType_Raw, ReturnType_Bool,      ThisPointer_Address, ILocomotion_ShouldCollideWith);
 	DHookAddParam(g_hShouldCollideWith, HookParamType_CBaseEntity);
+	
+	g_hGetSolidMask        = DHookCreateEx(hConf, "IBody::GetSolidMask",             HookType_Raw, ReturnType_Int,       ThisPointer_Address, IBody_GetSolidMask);
+	g_hGetHullWidth        = DHookCreateEx(hConf, "IBody::GetHullWidth",             HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetHullWidth);
+	g_hGetHullHeight       = DHookCreateEx(hConf, "IBody::GetHullHeight",            HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetHullHeight);
+	g_hGetStandHullHeight  = DHookCreateEx(hConf, "IBody::GetStandHullHeight",       HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetStandHullHeight);
+	g_hGetCrouchHullHeight = DHookCreateEx(hConf, "IBody::GetCrouchHullHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetCrouchHullHeight);
+	g_hGetHullMins         = DHookCreateEx(hConf, "IBody::GetHullMins",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMins);
+	g_hGetHullMaxs         = DHookCreateEx(hConf, "IBody::GetHullMaxs",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMaxs);
 	
 	delete hConf;
 }
@@ -2105,44 +2117,38 @@ public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hPara
 
 public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)
 {
-	Address INextBot = SDKCall(g_hGetBot, pThis);
-	int iEntity = SDKCall(g_hGetEntity, INextBot);
-
-	float vecMaxs[3];
-	GetEntPropVector(iEntity, Prop_Send, "m_vecMaxs", vecMaxs);
-	
-	if(vecMaxs[1] > vecMaxs[0])
-		DHookSetReturn(hReturn, vecMaxs[1] * 2);
-	else
-		DHookSetReturn(hReturn, vecMaxs[0] * 2);
-
+	DHookSetReturn(hReturn, 5.0);
 	return MRES_Supercede;
 }
 
 public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)
 {
-	Address INextBot = SDKCall(g_hGetBot, pThis);
-	int iEntity = SDKCall(g_hGetEntity, INextBot);
+	DHookSetReturn(hReturn, 68.0);
+	return MRES_Supercede;
+}
 
-	float vecMaxs[3];
-	GetEntPropVector(iEntity, Prop_Send, "m_vecMaxs", vecMaxs);
-	
-	DHookSetReturn(hReturn, vecMaxs[2]);
-
+public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)
+{
+	DHookSetReturn(hReturn, 68.0);
 	return MRES_Supercede;
 }
 
 public MRESReturn IBody_GetCrouchHullHeight(Address pThis, Handle hReturn, Handle hParams)
 {
-	Address INextBot = SDKCall(g_hGetBot, pThis);
-	int iEntity = SDKCall(g_hGetEntity, INextBot);
-
-	float vecMaxs[3];
-	GetEntPropVector(iEntity, Prop_Send, "m_vecMaxs", vecMaxs);
-	
-	DHookSetReturn(hReturn, vecMaxs[2] / 2);
-
+	DHookSetReturn(hReturn, 32.0);
 	return MRES_Supercede;
+}
+
+public MRESReturn IBody_GetHullMins(Address pThis, Handle hReturn, Handle hParams)
+{
+    DHookSetReturnVector(hReturn, view_as<float>( { -5.0, -5.0, 0.0 } ));
+    return MRES_Supercede;
+}
+
+public MRESReturn IBody_GetHullMaxs(Address pThis, Handle hReturn, Handle hParams)
+{
+    DHookSetReturnVector(hReturn, view_as<float>( { 5.0, 5.0, 68.0 } ));
+    return MRES_Supercede;
 }
 
 public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hParams)

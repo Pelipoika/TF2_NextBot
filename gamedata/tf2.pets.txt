@@ -251,6 +251,11 @@
 				"windows"	"74"
 				"linux"		"75"
 			}
+			"IBody::GetHullHeight"
+			{
+				"windows"	"75"
+				"linux"		"76"
+			}
 			"IBody::GetStandHullHeight"
 			{
 				"windows"	"76"
@@ -260,6 +265,16 @@
 			{
 				"windows"	"77"
 				"linux"		"78"
+			}
+			"IBody::GetHullMins"
+			{
+				"windows"	"78"
+				"linux"		"79"
+			}
+			"IBody::GetHullMaxs"
+			{
+				"windows"	"79"
+				"linux"		"80"
 			}
 		}
 	}
