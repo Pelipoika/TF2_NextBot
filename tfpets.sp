@@ -1161,6 +1161,12 @@ public void PetEngineerThink(int iEntity)
 					DispatchKeyValue(ammo, "modelscale", "0.65");
 					DispatchSpawn(ammo);
 					
+					//this[iAmmoType + 311] = iCount;
+					//this + iAmmoType + 316 = a2;
+					//Lesson learned, don't trust pseudocode
+					//[ecx+edx*4+4DCh], eax
+					SetEntData(ammo, (TF_AMMO_METAL * 4) + (311 * 4), 100, _, true);
+					
 					SetEntProp(ammo, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
 					TeleportEntity(ammo, NULL_VECTOR, NULL_VECTOR, vecForward);
 					
@@ -1170,7 +1176,6 @@ public void PetEngineerThink(int iEntity)
 					
 					npc.StopAmmoHunt();
 					npc.IsCarryingAmmo = false;
-					
 					npc.NextAmmoCheckTime = GetGameTime() + 30.0;
 				}
 			
