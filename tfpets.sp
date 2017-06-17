@@ -75,13 +75,12 @@ Handle g_hGetBot;
 
 //DHooks
 Handle g_hGetFrictionSideways;
-//Handle g_hGetFrictionForward;
 Handle g_hGetStepHeight;
 Handle g_hGetGravity;
 Handle g_hGetGroundNormal;
 Handle g_hShouldCollideWith;
 Handle g_hGetSolidMask;
-//Handle g_hStartActivity;
+Handle g_hStartActivity;
 Handle g_hGetHullWidth;
 Handle g_hGetHullHeight;
 Handle g_hGetStandHullHeight;
@@ -120,7 +119,6 @@ methodmap BaseNPC __nullable__
 		DHookRaw(g_hShouldCollideWith,   true, pLocomotion);
 		DHookRaw(g_hGetMaxAcceleration,  true, pLocomotion);
 		DHookRaw(g_hGetFrictionSideways, true, pLocomotion);
-	//	DHookRaw(g_hGetFrictionForward,  true, pLocomotion);
 		
 		if(bGroundNormal)
 			DHookRaw(g_hGetGroundNormal, true, pLocomotion)
@@ -128,7 +126,7 @@ methodmap BaseNPC __nullable__
 		Address pBody = SDKCall(g_hGetBodyInterface, pNB);
 		
 		DHookRaw(g_hGetSolidMask,        true, pBody);
-	//	DHookRaw(g_hStartActivity,       true, pBody);
+		DHookRaw(g_hStartActivity,       true, pBody);
 		DHookRaw(g_hGetHullWidth,        true, pBody);
 		DHookRaw(g_hGetHullHeight,       true, pBody);
 		DHookRaw(g_hGetStandHullHeight,  true, pBody);
@@ -150,6 +148,8 @@ methodmap BaseNPC __nullable__
 		Dynamic brain = Dynamic();
 		brain.SetBool("Pathing", false);
 		brain.SetInt ("Weapon",  INVALID_ENT_REFERENCE);
+		brain.SetFloat("MoveSpeed", 150.0);
+		brain.SetFloat("OutOfRange", 400.0);
 		brain.SetName(strName);
 		
 		SDKHook(npc, SDKHook_Think, BasicPetThink);
@@ -375,7 +375,6 @@ methodmap BaseNPC __nullable__
 		PF_EnableCallback(this.index, PFCB_Approach, PluginBot_Approach);
 		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge, PluginBot_Jump);
 		PF_EnableCallback(this.index, PFCB_GetPathCost, PluginBot_PathCost);
-		PF_EnableCallback(this.index, PFCB_PathFailed, PluginBot_PathFailed);
 	}
 	
 	public void Approach(const float vecGoal[3])
@@ -396,13 +395,12 @@ methodmap BaseNPC __nullable__
 	public void Update()
 	{
 		SDKCall(g_hStudioFrameAdvance, this.index);
-		SDKCall(g_hRun,                this.GetLocomotionInterface());
+		SDKCall(g_hRun,                this.GetLocomotionInterface());	
 		SDKCall(g_hStuckMonitor,       this.GetLocomotionInterface());
 		
 		bool bStuck = SDKCall(g_hIsStuck, this.GetLocomotionInterface());
 		if(bStuck)
 		{
-		//	PrintToChatAll("We're stuck!")
 			SDKCall(g_hClearStuckStatus, this.GetLocomotionInterface(), "Un-Stuck");
 			TeleportEntity(this.index, WorldSpaceCenter(GetEntPropEnt(this.index, Prop_Send, "m_hOwnerEntity")), NULL_VECTOR, NULL_VECTOR);
 		}
@@ -444,6 +442,39 @@ methodmap BaseNPC __nullable__
 	}
 }
 
+methodmap PetSkeleton < BaseNPC
+{
+	public PetSkeleton(int client, float vecPos[3], float vecAng[3])
+	{
+		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/skeleton_sniper_boss/skeleton_sniper_boss.mdl", "0.5");
+		
+		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        150.0);
+		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        (GetRandomInt(0, 1) == 1) ? (GetClientTeam(client) - 2) : GetRandomInt(2, 3));
+		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
+		
+		Dynamic brain = pet.GetBrainInterface();
+		brain.SetBool ("Healing",      false);
+		brain.SetInt  ("BeamEntity",   INVALID_ENT_REFERENCE);
+		brain.SetFloat("NextHealTime", 0.0);
+		
+		//REQUIRED
+		brain.SetString("MoveAnim", "run_MELEE");
+		brain.SetFloat("MoveSpeed", 150.0);
+		brain.SetString("IdleAnim", "stand_MELEE");
+		brain.SetFloat("OutOfRange", 400.0);
+		//////////
+		
+		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.SetAnimation("run_MELEE");
+		pet.Pathing = true;
+		
+	//	SDKHook(pet.index, SDKHook_Think, PetMedicThink);
+		SDKHook(pet.index, SDKHook_Think, Blend9Think);
+		
+		return view_as<PetSkeleton>(pet);
+	}
+}
+
 methodmap PetMedic < BaseNPC
 {
 	public PetMedic(int client, float vecPos[3], float vecAng[3], const char[] model)
@@ -466,11 +497,9 @@ methodmap PetMedic < BaseNPC
 		brain.SetFloat("OutOfRange", 400.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_NPCSOLID|MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("run_SECONDARY");
 		pet.Pathing = true;
-		
-		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
 		
 		SDKHook(pet.index, SDKHook_Think, PetMedicThink);
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
@@ -602,7 +631,7 @@ methodmap PetTank < BaseNPC
 		brain.SetInt("LeftTrack", INVALID_ENT_REFERENCE);
 		brain.SetInt("RightTrack",  INVALID_ENT_REFERENCE);
 		
-		pet.CreatePather(client, 18.0, 72.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("movement");
 		pet.Pathing = true;
 		
@@ -663,36 +692,13 @@ methodmap PetTank < BaseNPC
 	}
 }
 
-methodmap PetCrab < BaseNPC
-{
-	public PetCrab(int client, float vecPos[3], float vecAng[3], const char[] model)
-	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model);
-
-		SetEntPropFloat(pet.index, Prop_Data, "m_speed",         75.0);
-		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
-		
-		//REQUIRED
-		Dynamic brain = pet.GetBrainInterface();
-		brain.SetString("JumpAnim", "jumpattack_broadcast", 64);
-		//////////
-		
-		pet.CreatePather(client, 18.0, 200.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
-		pet.SetAnimation("Idle01");
-		pet.Pathing = true;
-		
-		return view_as<PetCrab>(pet);
-	}
-}
-
 methodmap PetGhost < BaseNPC
 {
 	public PetGhost(int client, float vecPos[3], float vecAng[3], const char[] model)
 	{
 		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.5");
 		
-		SetEntPropFloat(pet.index, Prop_Data, "m_flGravity",    200.0);
-		SetEntPropFloat(pet.index, Prop_Data, "m_speed",        GetEntPropFloat(client, Prop_Send, "m_flMaxspeed"));
+		SetEntPropFloat(pet.index, Prop_Data, "m_flGravity",    200.0);		
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
 		pet.CreatePather(client, 18.0, 1000.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
@@ -722,7 +728,7 @@ methodmap PetHeavy < BaseNPC
 		brain.SetFloat("OutOfRange", 400.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 36.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("Stand_PRIMARY");
 		pet.Pathing = true;
 		
@@ -900,8 +906,24 @@ methodmap PetEngineer < BaseNPC
 	}
 }
 
+//Stop when near owner
+//Adjust speed near owner
+//Run update
 public void BasicPetThink(int iEntity)
 {
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
+	{
+		AcceptEntityInput(iEntity, "Kill");
+		return;
+	}
+	
+	if(client == -1)
+	{
+		AcceptEntityInput(iEntity, "Kill");
+		return;
+	}
+	
 	BaseNPC npc = view_as<BaseNPC>(iEntity);
 	npc.Update();
 	
@@ -912,13 +934,11 @@ public void BasicPetThink(int iEntity)
 	float flMoveSpeed  = npc.MoveSpeed;
 	float flOutOfRange = npc.OutOfRange;
 	
-	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-	
 	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
 	float flDistance = GetVectorDistance(flCPos, flOrigin);
 	
 	//We don't wanna fall too behind.
-	SetEntPropFloat(iEntity, Prop_Data, "m_speed", flDistance >= flOutOfRange ? flMoveSpeed * 2 : flMoveSpeed);
+	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
 	
 	if(flDistance <= 150.0)	
 	{
@@ -933,7 +953,7 @@ public void BasicPetThink(int iEntity)
 		{
 			npc.Pathing = true;
 		}
-	}	
+	}
 }
 
 public void PetEngineerThink(int iEntity)
@@ -1177,12 +1197,13 @@ public void PetMedicThink(int iEntity)
 public void Blend9Think(int iEntity)
 {
 	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-	
 	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
 	{
 		AcceptEntityInput(iEntity, "Kill");
 		return;
-	}if(client == -1)
+	}
+	
+	if(client == -1)
 	{
 		AcceptEntityInput(iEntity, "Kill");
 		return;
@@ -1199,23 +1220,6 @@ public void Blend9Think(int iEntity)
 	npc.MoveAnim(MoveAnim, sizeof(MoveAnim));
 	npc.IdleAnim(IdleAnim, sizeof(IdleAnim));
 	
-	float flMoveSpeed  = npc.MoveSpeed;
-	float flOutOfRange = npc.OutOfRange;
-	
-	float flCPos[3];   flCPos   = WorldSpaceCenter(client);
-	float flOrigin[3]; flOrigin = WorldSpaceCenter(iEntity); 
-	float flAbsAngles[3]; GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
-		
-	float flDistance = GetVectorDistance(flCPos, flOrigin);
-	
-	//We don't wanna fall too behind
-	if(flDistance >= flOutOfRange){
-		SetEntPropFloat(iEntity, Prop_Data, "m_speed", flMoveSpeed * 2);
-	}
-	else{
-		SetEntPropFloat(iEntity, Prop_Data, "m_speed", flMoveSpeed);
-	}
-	
 	int m_iMoveX = SDKCall(g_hLookupPoseParameter, iEntity, pStudioHdr, "move_x");
 	int m_iMoveY = SDKCall(g_hLookupPoseParameter, iEntity, pStudioHdr, "move_y");
 	
@@ -1223,12 +1227,12 @@ public void Blend9Think(int iEntity)
 		return;
 	
 	int iCurrSequence = GetEntProp(iEntity, Prop_Send, "m_nSequence");
-	int iSequenceMove = SDKCall(g_hLookupSequence, pStudioHdr, MoveAnim);
-	int iSequenceIdle = SDKCall(g_hLookupSequence, pStudioHdr, IdleAnim);
 	
 	float flGroundSpeed = SDKCall(g_hGetGroundSpeed, pLocomotion);
 	if ( flGroundSpeed != 0.0 )
 	{
+		int iSequenceMove = SDKCall(g_hLookupSequence, pStudioHdr, MoveAnim);
+		
 		if(!(GetEntityFlags(iEntity) & FL_ONGROUND))
 		{
 			if(iCurrSequence != iSequenceMove)
@@ -1255,6 +1259,8 @@ public void Blend9Think(int iEntity)
 	}
 	else
 	{
+		int iSequenceIdle = SDKCall(g_hLookupSequence, pStudioHdr, IdleAnim);
+		
 		//Set Idle anim when not moving and if it's not already set
 		if(iCurrSequence != iSequenceIdle)
 		{
@@ -1273,7 +1279,6 @@ public void Blend9Think(int iEntity)
 		SetEntPropFloat(iEntity, Prop_Send, "m_flPlaybackRate", flReturnValue);
 	}
 	
-	SDKCall(g_hStudioFrameAdvance, iEntity);
 	SDKCall(g_hDispatchAnimEvents, iEntity, iEntity);
 }
 
@@ -1531,10 +1536,11 @@ public Action Command_PetMenu(int client, int argc)
 		menu.AddItem("0", "- Remove Pet");
 		menu.AddItem("1", "Tank");
 		menu.AddItem("2", "Medic");
-		menu.AddItem("3", "Headcrab");
-		menu.AddItem("4", "Ghost");
-		menu.AddItem("5", "Robot Heavy");
-		menu.AddItem("6", "Robot Engineer");
+		menu.AddItem("3", "Ghost");
+		menu.AddItem("4", "Robot Heavy");
+		menu.AddItem("5", "Robot Engineer");
+		menu.AddItem("6", "Skeleton");
+		menu.AddItem("7", "Zombie Heavy");
 		menu.Display(client, MENU_TIME_FOREVER);
 	}
 	
@@ -1601,36 +1607,47 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 			}
 			case 3:
 			{
-				PetCrab npc = new PetCrab(param1, flPos, flAng, "models/headcrabclassic.mdl");
-				npc.Update();
-			}
-			case 4:
-			{
 				switch(GetRandomInt(1, 2))
 				{
 					case 1:	
 					{
-						PetGhost npc = new PetGhost(param1, flPos, flAng, "models/props_halloween/ghost.mdl");
+						PetGhost npc = new PetGhost(param1, flPos, flAng, "models/props_halloween/ghost.mdl"); 
 						npc.Update();
 					}
-					case 2:
+					case 2: 
 					{
-						PetGhost npc = new PetGhost(param1, flPos, flAng, GetClientTeam(param1) == 3 ? "models/props_halloween/ghost_no_hat_red.mdl" : "models/props_halloween/ghost_no_hat.mdl");
+						PetGhost npc = new PetGhost(param1, flPos, flAng, GetClientTeam(param1) == 3 ? "models/props_halloween/ghost_no_hat_red.mdl" : "models/props_halloween/ghost_no_hat.mdl"); 
 						npc.Update();
 					}
 				}
 			}
-			case 5:
+			case 4:
 			{
 				PetHeavy npc = new PetHeavy(param1, flPos, flAng, "models/bots/heavy/bot_heavy.mdl");
 				npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_minigun.mdl", _, 8);
 			}
-			case 6:
+			case 5:
 			{
 				PetEngineer npc = new PetEngineer(param1, flPos, flAng);
 				npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_wrench.mdl", _, GetClientTeam(param1) - 2);
 				SetVariantString("1.0");
 				AcceptEntityInput(npc.Weapon, "SetModelScale");
+			}
+			case 6:
+			{
+				PetSkeleton npc = new PetSkeleton(param1, flPos, flAng);
+				npc.Update();
+			}
+			case 7:
+			{
+				//Code reusability, hurray!
+				PetHeavy npc = new PetHeavy(param1, flPos, flAng, "models/player/heavy.mdl");
+				npc.EquipItem("head", "models/player/items/heavy/heavy_zombie.mdl", _, GetClientTeam(param1) - 2);
+				SetEntProp(npc.index, Prop_Send, "m_nSkin", GetClientTeam(param1) + 2);
+				
+				Dynamic brain = npc.GetBrainInterface();
+				brain.SetString("MoveAnim", "Run_MELEE", 64);
+				brain.SetString("IdleAnim", "Stand_MELEE", 64);
 			}
 		}
 	}
@@ -1677,7 +1694,7 @@ public void OnMapStart()
 
 public void OnPluginStart()
 {
-	RegAdminCmd("sm_pets", Command_PetMenu, ADMFLAG_ROOT);
+	RegAdminCmd("sm_pets", Command_PetMenu, 0);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	
@@ -1869,6 +1886,7 @@ public void OnPluginStart()
 	g_hGetCrouchHullHeight = DHookCreateEx(hConf, "IBody::GetCrouchHullHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetCrouchHullHeight);
 	g_hGetHullMins         = DHookCreateEx(hConf, "IBody::GetHullMins",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMins);
 	g_hGetHullMaxs         = DHookCreateEx(hConf, "IBody::GetHullMaxs",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMaxs);
+	g_hStartActivity       = DHookCreateEx(hConf, "IBody::StartActivity",            HookType_Raw, ReturnType_Bool,      ThisPointer_Address, IBody_StartActivity);
 	
 	delete hConf;
 }
@@ -1885,17 +1903,14 @@ Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType 
 	return DHookCreate(iOffset, hooktype, returntype, thistype, callback);
 }
 
-public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 20.0);	return MRES_Supercede; }
+public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)     { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } ));  return MRES_Supercede; }
+public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 18.0);	return MRES_Supercede; }
 public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 1700.0); return MRES_Supercede; }
 public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
-public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)     { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } ));   return MRES_Supercede; }
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturn(hReturn, false); return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)
 {
-	Address INextBot = SDKCall(g_hGetBot, pThis);
-	int iEntity = SDKCall(g_hGetEntity, INextBot);
-
-	float flGravity = GetEntPropFloat(iEntity, Prop_Data, "m_flGravity");
+	float flGravity = GetEntPropFloat(SDKCall(g_hGetEntity, SDKCall(g_hGetBot, pThis)), Prop_Data, "m_flGravity");
 	DHookSetReturn(hReturn, flGravity == 0.0 ? 800.0 : flGravity);
 	
 	return MRES_Supercede;
@@ -1951,15 +1966,6 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	float cost = dist * multiplier;
 	
 	return from_area.GetCostSoFar() + cost;
-}
-
-public void PluginBot_PathFailed(int bot_entidx)
-{
-	float vecGoal[3];
-	if (PF_GetFutureSegment(bot_entidx, 0, vecGoal))
-	{
-		TeleportEntity(bot_entidx, vecGoal, NULL_VECTOR, NULL_VECTOR);
-	}
 }
 
 public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float dir[2])
