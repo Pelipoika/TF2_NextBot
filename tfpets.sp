@@ -468,7 +468,6 @@ methodmap PetSkeleton < BaseNPC
 		pet.SetAnimation("run_MELEE");
 		pet.Pathing = true;
 		
-	//	SDKHook(pet.index, SDKHook_Think, PetMedicThink);
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		
 		return view_as<PetSkeleton>(pet);
@@ -501,6 +500,7 @@ methodmap PetMedic < BaseNPC
 		pet.SetAnimation("run_SECONDARY");
 		pet.Pathing = true;
 		
+		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
 		SDKHook(pet.index, SDKHook_Think, PetMedicThink);
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		
@@ -619,6 +619,12 @@ methodmap PetMedic < BaseNPC
 
 methodmap PetTank < BaseNPC
 {
+	//TODO
+	//0.33 - Pelipoika: How about you look at tank and say "Help!" voice command
+	//0.33 - Pelipoika: then the tank beeps
+	//0.33 - Pelipoika: and then you point somewhere and say "Go Go Go"
+	//0.33 - Pelipoika: And the tank deploys a bomb there
+
 	public PetTank(int client, float vecPos[3], float vecAng[3], const char[] model)
 	{
 		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.15", _, false);
