@@ -647,6 +647,7 @@ methodmap PetTank < BaseNPC
 		brain.SetInt("Bomb", INVALID_ENT_REFERENCE);
 		brain.SetFloat("DeployStartTime", 0.0);
 		brain.SetBool("Deploying", false);
+		brain.SetBool("DoingSpecial", false);
 		brain.SetVector("DeployPos", NULL_VECTOR);
 		
 		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
@@ -732,6 +733,30 @@ methodmap PetTank < BaseNPC
 			if(brain.IsValid)
 			{
 				brain.SetInt("Bomb", EntIndexToEntRef(Bomb));
+			}
+		}
+	}
+	
+	property bool DoingSpecial
+	{
+		public get()			
+		{
+			bool DoingSpecial = false;
+		
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				DoingSpecial = brain.GetBool("DoingSpecial");
+			}
+			
+			return DoingSpecial;
+		}
+		public set(bool DoingSpecial)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetBool("DoingSpecial", DoingSpecial);
 			}
 		}
 	}
@@ -1103,36 +1128,8 @@ public void PetTankThink(int iEntity)
 	float DeployPos[3];
 	npc.GetDeployPos(DeployPos);
 	
-	if(Deploying)
-	{
-		float flDeployStart = GetGameTime() - npc.DeployStartTime;
-		if(flDeployStart >= 8.0)
-		{
-			float bombPos[3]; bombPos = flOrigin;
-			bombPos[2] += 20.0;
-			
-			float vForward[3], vLeft[3];
-			GetAngleVectors(flAbsAngles, vForward, vLeft, NULL_VECTOR);
-			bombPos[0] += (vForward[0] * 15);
-			bombPos[1] += (vForward[1] * 15);
-			
-			bombPos[0] += (vLeft[0] * -6);
-			bombPos[1] += (vLeft[1] * -6);
-			
-			CreateParticle("taunt_demo_nuke_shroomcloud", bombPos, flAbsAngles);
-			Explode(bombPos, 100.0, 200.0, "", "mvm/mvm_bomb_explode.wav");
-			
-			npc.Deploying = false;
-			PF_SetGoalEntity(npc.index, client);
-			npc.Pathing = true;
-			npc.SetDeployPos(NULL_VECTOR);
-			
-			npc.SetAnimation("movement");
-			SetEntProp(Bomb, Prop_Send, "m_nSequence", 0);
-		}
-	}
-	
-	if(DeployPos[0] != 0.0 && DeployPos[1] != 0.0 && !Deploying)
+	//Start Deploy
+	if(!Deploying && npc.DoingSpecial)
 	{
 		if(GetVectorDistance(DeployPos, flOrigin) < 20.0)
 		{
@@ -1150,7 +1147,39 @@ public void PetTankThink(int iEntity)
 		}
 	}
 	
-	if(!Deploying && (DeployPos[0] == 0.0 && DeployPos[1] == 0.0))
+	//Finish Deploy
+	if(Deploying)
+	{
+		float flDeployStart = GetGameTime() - npc.DeployStartTime;
+		if(flDeployStart >= 8.0)
+		{
+			float bombPos[3]; bombPos = flOrigin;
+			bombPos[2] += 20.0;
+			
+			float vForward[3], vLeft[3];
+			GetAngleVectors(flAbsAngles, vForward, vLeft, NULL_VECTOR);
+			bombPos[0] += (vForward[0] * 15);
+			bombPos[1] += (vForward[1] * 15);
+			
+			bombPos[0] += (vLeft[0] * -6);
+			bombPos[1] += (vLeft[1] * -6);
+			
+			CreateParticle("taunt_demo_nuke_shroomcloud", bombPos, flAbsAngles);
+			Explode(client, bombPos, 100.0, 200.0, "", "mvm/mvm_bomb_explode.wav");
+			
+			npc.Deploying = false;
+			PF_SetGoalEntity(npc.index, client);
+			npc.Pathing = true;
+			npc.SetDeployPos(NULL_VECTOR);
+			
+			npc.SetAnimation("movement");
+			SetEntProp(Bomb, Prop_Send, "m_nSequence", 0);
+			
+			npc.DoingSpecial = false;
+		}
+	}
+	
+	if(!Deploying && !npc.DoingSpecial)
 	{
 		if(flDistance <= 150.0)	
 		{
@@ -1186,7 +1215,7 @@ public Action Listener_Voice(int client, char[] command, int args)
 		while((iEntity = FindEntityByClassname(iEntity, "base_boss")) != -1)
 		{
 			int iOwner = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-			if(iOwner > 0 && iOwner <= MaxClients && iOwner == client)
+			if(iOwner > 0 && iOwner <= MaxClients && iOwner == client && PF_Exists(iEntity))
 			{
 				bFound = true;
 				break;
@@ -1218,6 +1247,7 @@ public Action Listener_Voice(int client, char[] command, int args)
 				npc.SetDeployPos(vecPos);
 				PF_SetGoalVector(npc.index, vecPos);
 				npc.Pathing = true;
+				npc.DoingSpecial = true;
 			}
 		}
 	}
@@ -2353,16 +2383,17 @@ stock void CreateParticle(char[] particle, float pos[3], float ang[3])
 	TE_SendToAll();
 }
 
-stock void Explode(float flPos[3], float flDamage, float flRadius, const char[] strParticle, const char[] strSound)
+stock void Explode(int client, float flPos[3], float flDamage, float flRadius, const char[] strParticle, const char[] strSound)
 {
-    int iBomb = CreateEntityByName("tf_generic_bomb");
-    DispatchKeyValueVector(iBomb, "origin", flPos);
-    DispatchKeyValueFloat(iBomb, "damage", flDamage);
-    DispatchKeyValueFloat(iBomb, "radius", flRadius);
-    DispatchKeyValue(iBomb, "health", "1");
-    DispatchKeyValue(iBomb, "explode_particle", strParticle);
-    DispatchKeyValue(iBomb, "sound", strSound);
-    DispatchSpawn(iBomb);
+	int iBomb = CreateEntityByName("tf_generic_bomb");
+	DispatchKeyValueVector(iBomb, "origin", flPos);
+	DispatchKeyValueFloat(iBomb, "damage", flDamage);
+	DispatchKeyValueFloat(iBomb, "radius", flRadius);
+	DispatchKeyValue(iBomb, "health", "1");
+	DispatchKeyValue(iBomb, "explode_particle", strParticle);
+	DispatchKeyValue(iBomb, "sound", strSound);
+	DispatchSpawn(iBomb);
 
-    AcceptEntityInput(iBomb, "Detonate");
+//    AcceptEntityInput(iBomb, "Detonate");
+	SDKHooks_TakeDamage(iBomb, client, client, 500.0);
 }  
