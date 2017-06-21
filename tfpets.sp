@@ -138,6 +138,7 @@ methodmap BaseNPC __nullable__
 		
 		SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
 		SetEntProp(npc, Prop_Data, "m_takedamage", 0);
+		SetEntProp(npc, Prop_Data, "m_lifeState", 1); 
 		SetEntProp(npc, Prop_Data, "m_nSolidType", 0); 
 
 		ActivateEntity(npc);
@@ -384,7 +385,13 @@ methodmap BaseNPC __nullable__
 	
 	public void FaceTowards(const float vecGoal[3])
 	{
+		//Sad!
+		ConVar flTurnRate = FindConVar("tf_base_boss_max_turn_rate");
+		float flPrevValue = flTurnRate.FloatValue;
+		
+		flTurnRate.FloatValue = 200.0;
 		SDKCall(g_hFaceTowards, this.GetLocomotionInterface(), vecGoal);
+		flTurnRate.FloatValue = flPrevValue;
 	}
 	
 	public void Jump()
