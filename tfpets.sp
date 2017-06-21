@@ -643,7 +643,11 @@ methodmap PetTank < BaseNPC
 		
 		Dynamic brain = pet.GetBrainInterface();
 		brain.SetInt("LeftTrack", INVALID_ENT_REFERENCE);
-		brain.SetInt("RightTrack",  INVALID_ENT_REFERENCE);
+		brain.SetInt("RightTrack", INVALID_ENT_REFERENCE);
+		brain.SetInt("Bomb", INVALID_ENT_REFERENCE);
+		brain.SetFloat("DeployStartTime", 0.0);
+		brain.SetBool("Deploying", false);
+		brain.SetVector("DeployPos", NULL_VECTOR);
 		
 		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("movement");
@@ -653,6 +657,9 @@ methodmap PetTank < BaseNPC
 		EmitSoundToAll(")mvm/mvm_tank_loop.wav",  pet.index, _, _, _, 0.10);
 		
 		TF2_CreateParticle(pet.index, "smoke_attachment", "buildingdamage_smoke3");
+		
+		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
+		SDKHook(pet.index, SDKHook_Think, PetTankThink);
 		
 		return view_as<PetTank>(pet);
 	}
@@ -703,6 +710,106 @@ methodmap PetTank < BaseNPC
 				brain.SetInt("RightTrack", EntIndexToEntRef(RightTrack));
 			}
 		}
+	}
+	
+	property int Bomb
+	{
+		public get()			
+		{
+			int ent = INVALID_ENT_REFERENCE;
+		
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				ent = EntRefToEntIndex(brain.GetInt("Bomb"));
+			}
+			
+			return ent;
+		}
+		public set(int Bomb)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetInt("Bomb", EntIndexToEntRef(Bomb));
+			}
+		}
+	}
+	
+	property bool Deploying
+	{
+		public get()			
+		{
+			bool Deploying = false;
+		
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				Deploying = brain.GetBool("Deploying");
+			}
+			
+			return Deploying;
+		}
+		public set(bool Deploying)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetBool("Deploying", Deploying);
+			}
+		}
+	}
+	
+	property float DeployStartTime
+	{
+		public get()			
+		{
+			float DeployStartTime = GetGameTime();
+		
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				DeployStartTime = brain.GetFloat("DeployStartTime");
+			}
+			
+			return DeployStartTime;
+		}
+		public set(float DeployStartTime)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetFloat("DeployStartTime", DeployStartTime);
+			}
+		}
+	}
+	
+	public bool GetDeployPos(float[3] value)
+	{
+		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
+		if (offset == INVALID_DYNAMIC_OFFSET)
+		{
+			offset = this.GetBrainInterface().GetMemberOffset("DeployPos");
+			if (offset == INVALID_DYNAMIC_OFFSET)
+				SetFailState("A serious error occured in Dynamic!");
+		}
+		this.GetBrainInterface().GetVectorByOffset(offset, value);
+		return true;
+	}
+
+	public void SetDeployPos(const float[3] value)
+	{
+		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
+		if (offset == INVALID_DYNAMIC_OFFSET)
+		{
+			offset = this.GetBrainInterface().GetMemberOffset("DeployPos");
+			if (offset == INVALID_DYNAMIC_OFFSET)
+			{
+				offset = this.GetBrainInterface().SetVector("DeployPos", value);
+				return;
+			}
+		}
+		this.GetBrainInterface().SetVectorByOffset(offset, value);
 	}
 }
 
@@ -932,12 +1039,6 @@ public void BasicPetThink(int iEntity)
 		return;
 	}
 	
-	if(client == -1)
-	{
-		AcceptEntityInput(iEntity, "Kill");
-		return;
-	}
-	
 	BaseNPC npc = view_as<BaseNPC>(iEntity);
 	npc.Update();
 	
@@ -968,6 +1069,170 @@ public void BasicPetThink(int iEntity)
 			npc.Pathing = true;
 		}
 	}
+}
+
+public void PetTankThink(int iEntity)
+{
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
+	{
+		AcceptEntityInput(iEntity, "Kill");
+		return;
+	}
+	
+	//taunt_demo_nuke_shroomcloud
+	PetTank npc = view_as<PetTank>(iEntity);
+	npc.Update();
+	
+	float flOrigin[3], flAbsAngles[3];
+	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
+	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+	
+	float flMoveSpeed  = npc.MoveSpeed;
+	float flOutOfRange = npc.OutOfRange;
+	
+	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
+	float flDistance = GetVectorDistance(flCPos, flOrigin);
+	
+	//We don't wanna fall too behind.
+	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
+	
+	bool Deploying = npc.Deploying;
+	int Bomb = npc.Bomb;
+	
+	float DeployPos[3];
+	npc.GetDeployPos(DeployPos);
+	
+	if(Deploying)
+	{
+		float flDeployStart = GetGameTime() - npc.DeployStartTime;
+		if(flDeployStart >= 8.0)
+		{
+			float bombPos[3]; bombPos = flOrigin;
+			bombPos[2] += 20.0;
+			
+			float vForward[3], vLeft[3];
+			GetAngleVectors(flAbsAngles, vForward, vLeft, NULL_VECTOR);
+			bombPos[0] += (vForward[0] * 15);
+			bombPos[1] += (vForward[1] * 15);
+			
+			bombPos[0] += (vLeft[0] * -6);
+			bombPos[1] += (vLeft[1] * -6);
+			
+			CreateParticle("taunt_demo_nuke_shroomcloud", bombPos, flAbsAngles);
+			Explode(bombPos, 100.0, 200.0, "", "mvm/mvm_bomb_explode.wav");
+			
+			npc.Deploying = false;
+			PF_SetGoalEntity(npc.index, client);
+			npc.Pathing = true;
+			npc.SetDeployPos(NULL_VECTOR);
+			
+			npc.SetAnimation("movement");
+			SetEntProp(Bomb, Prop_Send, "m_nSequence", 0);
+		}
+	}
+	
+	if(DeployPos[0] != 0.0 && DeployPos[1] != 0.0 && !Deploying)
+	{
+		if(GetVectorDistance(DeployPos, flOrigin) < 20.0)
+		{
+			SetEntPropFloat(npc.LeftTrack, Prop_Send, "m_flPlaybackRate", 0.0);
+			SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 0.0);
+			
+			EmitSoundToAll(")mvm/mvm_tank_deploy.wav", iEntity);
+			
+			npc.SetDeployPos(NULL_VECTOR);
+			npc.Pathing = false;
+			npc.SetAnimation("deploy");
+			npc.Deploying = true;
+			npc.DeployStartTime = GetGameTime();
+			view_as<BaseNPC>(Bomb).SetAnimation("deploy");
+		}
+	}
+	
+	if(!Deploying && (DeployPos[0] == 0.0 && DeployPos[1] == 0.0))
+	{
+		if(flDistance <= 150.0)	
+		{
+			if(npc.Pathing)
+			{
+				npc.Pathing = false;
+				SetEntPropFloat(npc.LeftTrack, Prop_Send, "m_flPlaybackRate", 0.0);
+				SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 0.0);
+			}
+		}
+		else
+		{
+			if(!npc.Pathing)
+			{
+				npc.Pathing = true;
+				SetEntPropFloat(npc.LeftTrack, Prop_Send, "m_flPlaybackRate", 1.0);
+				SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 1.0);
+			}
+		}
+	}
+}
+
+public Action Listener_Voice(int client, char[] command, int args) 
+{
+	char arguments[4];
+	GetCmdArgString(arguments, sizeof(arguments));
+		
+	if (StrEqual(arguments, "0 3"))
+	{
+		bool bFound = false;
+		
+		int iEntity = -1;
+		while((iEntity = FindEntityByClassname(iEntity, "base_boss")) != -1)
+		{
+			int iOwner = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+			if(iOwner > 0 && iOwner <= MaxClients && iOwner == client)
+			{
+				bFound = true;
+				break;
+			}
+		}
+		
+		if(!bFound)
+			return Plugin_Continue;
+		
+		PetTank npc = view_as<PetTank>(iEntity);
+		bool isTank = (npc.Bomb != INVALID_ENT_REFERENCE);
+		
+		float flDeployStart = GetGameTime() - npc.DeployStartTime;
+		
+		if (isTank && !npc.Deploying && flDeployStart >= 38.0)
+		{
+			float StartOrigin[3], Angles[3], vecPos[3];
+			GetClientEyeAngles(client, Angles);
+			GetClientEyePosition(client, StartOrigin);
+			
+			Handle TraceRay = TR_TraceRayFilterEx(StartOrigin, Angles, (CONTENTS_SOLID|CONTENTS_WINDOW|CONTENTS_GRATE), RayType_Infinite, TraceRayProp);
+			if (TR_DidHit(TraceRay))
+				TR_GetEndPosition(vecPos, TraceRay);
+				
+			delete TraceRay;
+			
+			if(PF_IsPathToVectorPossible(npc.index, vecPos))
+			{			
+				npc.SetDeployPos(vecPos);
+				PF_SetGoalVector(npc.index, vecPos);
+				npc.Pathing = true;
+			}
+		}
+	}
+
+	return Plugin_Continue;
+}
+
+public bool TraceRayProp(int entityhit, int mask, any entity)
+{
+	if (entityhit > MaxClients && entityhit != entity)
+	{
+		return true;
+	}
+	
+	return false;
 }
 
 public void PetEngineerThink(int iEntity)
@@ -1586,13 +1851,15 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 						
 						npc.LeftTrack  = npc.EquipItem("smoke_attachment", "models/bots/tw2/boss_bot/tank_track_l.mdl", "forward");
 						npc.RightTrack = npc.EquipItem("smoke_attachment", "models/bots/tw2/boss_bot/tank_track_r.mdl", "forward");
+						npc.Bomb = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/bomb_mechanism.mdl");
 					}
 					case 2:
 					{
 						PetTank npc = new PetTank(param1, flPos, flAng, "models/bots/boss_bot/boss_tank.mdl");
 						
-						npc.LeftTrack  = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/tank_track_L.mdl", "forward");
-						npc.RightTrack = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/tank_track_R.mdl", "forward");
+						npc.LeftTrack  = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/tank_track_l.mdl", "forward");
+						npc.RightTrack = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/tank_track_r.mdl", "forward");
+						npc.Bomb = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/bomb_mechanism.mdl");
 					}
 				}
 			}
@@ -1665,6 +1932,8 @@ public void OnMapStart()
 	
 	PrecacheSound(")mvm/mvm_tank_start.wav");
 	PrecacheSound(")mvm/mvm_tank_loop.wav");
+	PrecacheSound(")mvm/mvm_tank_deploy.wav");
+	PrecacheSound("ui/quest_status_tick.wav"); 
 	
 	PrecacheModel("models/props_halloween/ghost.mdl");
 	PrecacheModel("models/props_halloween/ghost_no_hat.mdl");
@@ -1682,6 +1951,7 @@ public void OnMapStart()
 	PrecacheModel("models/gman.mdl");
 	
 	PrecacheModel("models/bots/tw2/boss_bot/boss_tank.mdl");
+	PrecacheModel("models/bots/tw2/boss_bot/bomb_mechanism.mdl");
 	PrecacheModel("models/bots/boss_bot/boss_tank_damage1.mdl");
 	PrecacheModel("models/bots/boss_bot/boss_tank_damage2.mdl");
 	PrecacheModel("models/bots/boss_bot/boss_tank_damage3.mdl");
@@ -1696,6 +1966,8 @@ public void OnMapStart()
 public void OnPluginStart()
 {
 	RegAdminCmd("sm_pets", Command_PetMenu, 0);
+	
+	AddCommandListener(Listener_Voice, "voicemenu");
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	
@@ -2080,3 +2352,17 @@ stock void CreateParticle(char[] particle, float pos[3], float ang[3])
 	TE_WriteNum("m_iAttachType", 5);	//Dont associate with any entity
 	TE_SendToAll();
 }
+
+stock void Explode(float flPos[3], float flDamage, float flRadius, const char[] strParticle, const char[] strSound)
+{
+    int iBomb = CreateEntityByName("tf_generic_bomb");
+    DispatchKeyValueVector(iBomb, "origin", flPos);
+    DispatchKeyValueFloat(iBomb, "damage", flDamage);
+    DispatchKeyValueFloat(iBomb, "radius", flRadius);
+    DispatchKeyValue(iBomb, "health", "1");
+    DispatchKeyValue(iBomb, "explode_particle", strParticle);
+    DispatchKeyValue(iBomb, "sound", strSound);
+    DispatchSpawn(iBomb);
+
+    AcceptEntityInput(iBomb, "Detonate");
+}  
