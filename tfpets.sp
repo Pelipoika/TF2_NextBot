@@ -1,5 +1,6 @@
 #include <sdktools>
 #include <sdkhooks>
+#include <tf2_stocks>
 #include <PathFollower>
 #include <PathFollower_Nav>
 #include <dhooks>
@@ -1327,25 +1328,12 @@ stock int FindNearestAmmoPack(int robot, float flPosOut[3])
 
 stock bool IsAmmoLow(int client)
 {
-	int activeweapon = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
-	if(!IsValidEntity(activeweapon))
-		return false;
-	
-	//Wrench check
-	char strClass[64];
-	GetEntityClassname(activeweapon, strClass, sizeof(strClass));
-	if(StrEqual(strClass, "tf_weapon_wrench", false) || StrEqual(strClass, "tf_weapon_robot_arm"))
-		return GetAmmoCount(client, TF_AMMO_METAL) <= 50;
-	
-	//Melee weapon check
-	if(GetPlayerWeaponSlot(client, 2) == activeweapon)
-		return false;
-	
 	int iMaxAmmo   = GetMaxAmmo(client, TF_AMMO_PRIMARY);
-	int iAmmoCount = GetAmmoCount(client, TF_AMMO_PRIMARY);
+	int iAmmoCount = TF2_GetPlayerClass(client) == TFClass_Spy ? GetAmmoCount(client, TF_AMMO_SECONDARY) : GetAmmoCount(client, TF_AMMO_PRIMARY);
+	int iAmmoMetal = GetAmmoCount(client, TF_AMMO_METAL);
 	
 	float flAmmoPercentage = (float(iAmmoCount) / float(iMaxAmmo));
-	return flAmmoPercentage < 0.2;	//20% ammo is considered low.
+	return (flAmmoPercentage <= 0.3) || (iAmmoMetal <= 50);	//30% ammo or < 51 metal is considered low.
 }
 
 stock int GetMaxAmmo(int client, int iAmmoType, int iClassNumber = -1)
