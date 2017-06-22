@@ -655,7 +655,7 @@ methodmap PetTank < BaseNPC
 		pet.Pathing = true;
 		
 		EmitSoundToAll(")mvm/mvm_tank_start.wav", pet.index);
-		EmitSoundToAll(")mvm/mvm_tank_loop.wav",  pet.index, _, _, _, 0.10);
+		EmitSoundToAll(")mvm/mvm_tank_loop.wav",  pet.index, _, _, _, 0.20);
 		
 		TF2_CreateParticle(pet.index, "smoke_attachment", "buildingdamage_smoke3");
 		
@@ -1136,7 +1136,7 @@ public void PetTankThink(int iEntity)
 			SetEntPropFloat(npc.LeftTrack, Prop_Send, "m_flPlaybackRate", 0.0);
 			SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 0.0);
 			
-			EmitSoundToAll(")mvm/mvm_tank_deploy.wav", iEntity);
+			EmitSoundToAll(")mvm/mvm_tank_deploy.wav", iEntity, _, _, _, 0.30);
 			
 			npc.SetDeployPos(NULL_VECTOR);
 			npc.Pathing = false;
@@ -1165,15 +1165,17 @@ public void PetTankThink(int iEntity)
 			bombPos[1] += (vLeft[1] * -6);
 			
 			CreateParticle("taunt_demo_nuke_shroomcloud", bombPos, flAbsAngles);
-			Explode(client, bombPos, 100.0, 200.0, "", "mvm/mvm_bomb_explode.wav");
+			Explode(client, bombPos, 200.0, 200.0, "", "");
+			EmitSoundToAll("mvm/mvm_bomb_explode.wav", iEntity, _, _, _, 0.30);
 			
 			npc.Deploying = false;
 			PF_SetGoalEntity(npc.index, client);
 			npc.Pathing = true;
 			npc.SetDeployPos(NULL_VECTOR);
 			
-			npc.SetAnimation("movement");
-			SetEntProp(Bomb, Prop_Send, "m_nSequence", 0);
+			npc.SetAnimation("movement");			
+			AcceptEntityInput(npc.Bomb, "Kill");
+			npc.Bomb = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/bomb_mechanism.mdl");
 			
 			npc.DoingSpecial = false;
 		}
@@ -1825,20 +1827,29 @@ public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b :
 
 public Action Command_PetMenu(int client, int argc)
 {
-	if(client > 0 && client <= MaxClients && IsClientInGame(client) && GetClientTeam(client) == 2 || GetClientTeam(client) == 3)
-	{
-		Menu menu = new Menu(PetSelectHandler);
-		menu.SetTitle("Pets");
-		menu.AddItem("0", "- Remove Pet");
-		menu.AddItem("1", "Tank");
-		menu.AddItem("2", "Medic");
-		menu.AddItem("3", "Ghost");
-		menu.AddItem("4", "Robot Heavy");
-		menu.AddItem("5", "Robot Engineer");
-		menu.AddItem("6", "Skeleton");
-		menu.AddItem("7", "Zombie Heavy");
-		menu.Display(client, MENU_TIME_FOREVER);
-	}
+	//What are you.
+	if(!(client > 0 && client <= MaxClients && IsClientInGame(client)))
+		return Plugin_Handled;
+	
+	//No pets for spectators, ever.
+	if(TF2_GetClientTeam(client) == TFTeam_Spectator)
+		return Plugin_Handled;
+		
+	//No pets for blue team in MvM, ever.
+	if(TF2_IsMvM() && TF2_GetClientTeam(client) == TFTeam_Blue)
+		return Plugin_Handled;
+	
+	Menu menu = new Menu(PetSelectHandler);
+	menu.SetTitle("Pets");
+	menu.AddItem("0", "- Remove Pet");
+	menu.AddItem("1", "Tank");
+	menu.AddItem("2", "Medic");
+	menu.AddItem("3", "Ghost");
+	menu.AddItem("4", "Robot Heavy");
+	menu.AddItem("5", "Robot Engineer");
+	menu.AddItem("6", "Skeleton");
+	menu.AddItem("7", "Zombie Heavy");
+	menu.Display(client, MENU_TIME_FOREVER);
 	
 	return Plugin_Handled;
 }
@@ -1963,6 +1974,7 @@ public void OnMapStart()
 	PrecacheSound(")mvm/mvm_tank_start.wav");
 	PrecacheSound(")mvm/mvm_tank_loop.wav");
 	PrecacheSound(")mvm/mvm_tank_deploy.wav");
+	PrecacheSound("mvm/mvm_bomb_explode");
 	PrecacheSound("ui/quest_status_tick.wav"); 
 	
 	PrecacheModel("models/props_halloween/ghost.mdl");
@@ -1999,6 +2011,8 @@ public void OnPluginStart()
 	
 	AddCommandListener(Listener_Voice, "voicemenu");
 	
+	HookEvent("player_team", Event_PlayerTeam);
+	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	
 	//CTFPlayer
@@ -2033,9 +2047,9 @@ public void OnPluginStart()
 	if ((g_hResetSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::ResetSequence signature!"); 
 
 	//ResetSequenceInfo( );
-//	StartPrepSDKCall(SDKCall_Entity);
-//	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequenceInfo");
-//	if((g_hResetSequenceInfo = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::ResetSequenceInfo");
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequenceInfo");
+	if((g_hResetSequenceInfo = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::ResetSequenceInfo");
 
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::MyNextBotPointer");
@@ -2192,6 +2206,23 @@ public void OnPluginStart()
 	g_hStartActivity       = DHookCreateEx(hConf, "IBody::StartActivity",            HookType_Raw, ReturnType_Bool,      ThisPointer_Address, IBody_StartActivity);
 	
 	delete hConf;
+}
+
+public Action Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
+{
+	int client = GetClientOfUserId(event.GetInt("userid"));
+	
+	int iEntity = -1;
+	while((iEntity = FindEntityByClassname(iEntity, "base_boss")) != -1)
+	{
+		int iOwner = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+		if(iOwner > 0 && iOwner <= MaxClients && iOwner == client)
+		{
+			AcceptEntityInput(iEntity, "Kill");
+		}
+	}
+	
+	return Plugin_Continue;
 }
 
 Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType returntype, ThisPointerType thistype, DHookCallback callback)
@@ -2397,3 +2428,8 @@ stock void Explode(int client, float flPos[3], float flDamage, float flRadius, c
 //    AcceptEntityInput(iBomb, "Detonate");
 	SDKHooks_TakeDamage(iBomb, client, client, 500.0);
 }  
+
+stock bool TF2_IsMvM()
+{
+	return view_as<bool>(GameRules_GetProp("m_bPlayingMannVsMachine"));
+}
