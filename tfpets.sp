@@ -358,13 +358,13 @@ methodmap BaseNPC __nullable__
 	public void SetAnimation(const char[] anim)
 	{
 		int iSequence = this.LookupSequence(anim);
-		if(iSequence > 0)
+		if(iSequence >= 0)
 			SDKCall(g_hResetSequence, this.index, iSequence);
 	}
 	
 	public void PlayGesture(const char[] anim)
 	{
-//		int iAnim = utils_EntityLookupSequence(this.index, anim);
+//		int iAnim = this.LookupSequence(anim);
 //		AnimOverlayHandler handler = AnimOverlayHandler(this.index);
 //		handler.AddGestureSequence(iAnim);
 	}
@@ -880,6 +880,7 @@ methodmap PetHeavy < BaseNPC
 		
 		//Controls 9 way blend animation managing
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
+		SDKHook(pet.index, SDKHook_Think, PetHeavyThink);
 		
 		return view_as<PetHeavy>(pet);
 	}
@@ -1151,7 +1152,7 @@ public void PetTankThink(int iEntity)
 	if(Deploying)
 	{
 		float flDeployStart = GetGameTime() - npc.DeployStartTime;
-		if(flDeployStart >= 8.0)
+		if(flDeployStart >= 7.25)
 		{
 			float bombPos[3]; bombPos = flOrigin;
 			bombPos[2] += 20.0;
@@ -1204,6 +1205,28 @@ public void PetTankThink(int iEntity)
 	}
 }
 
+public void PetHeavyThink(int iEntity)
+{
+	PetHeavy npc = view_as<PetHeavy>(iEntity);
+	npc.Update();
+	
+	float flAbsAngles[3]; GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+	
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	
+	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
+	float flCAng[3]; GetClientEyeAngles(client, flCAng);
+	
+	if(!npc.Pathing)
+	{
+	//	int iWeapon = npc.Weapon;
+	}
+	else
+	{
+		
+	}
+}
+
 public Action Listener_Voice(int client, char[] command, int args) 
 {
 	char arguments[4];
@@ -1232,7 +1255,7 @@ public Action Listener_Voice(int client, char[] command, int args)
 		
 		float flDeployStart = GetGameTime() - npc.DeployStartTime;
 		
-		if (isTank && !npc.Deploying && flDeployStart >= 38.0)
+		if (isTank && !npc.Deploying && flDeployStart >= 20.0)
 		{
 			float StartOrigin[3], Angles[3], vecPos[3];
 			GetClientEyeAngles(client, Angles);
