@@ -30,16 +30,30 @@
 				"windows"	"\x55\x8B\xEC\x56\x8B\xF1\x57\x80\xBE\x41\x03\x00\x00\x00\x75\x2A\x83\xBE\x6C\x04\x00\x00\x00\x75\x2A\xE8\x2A\x2A\x2A\x2A\x85\xC0\x74\x2A\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x8B\xBE\x6C\x04\x00\x00"
 				"linux"		"@_ZN14CBaseAnimating16GetPoseParameterEi"
 			}
-			"LookupSequence" //( CStudioHdr *pstudiohdr, const char *label ) "spew_bars_context" NOTE: NOT CBaseAnimating::LookupSequence
+			"LookupSequence" //int ( CStudioHdr *pstudiohdr, const char *label ) "spew_bars_context" NOTE: NOT CBaseAnimating::LookupSequence
 			{
 				"windows"	"\x55\x8B\xEC\x56\x8B\x75\x08\x85\xF6\x75\x2A\x33\xC0\x5E\x5D\xC3\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x53"
 				"linux"		"@_Z14LookupSequenceP10CStudioHdrPKc"
 			}
-			
-			"CTFPlayer::GetMaxAmmo" //(int AmmoType, int idk)
+			"CTFPlayer::GetMaxAmmo" //int (int AmmoType, int idk)
 			{
 				"windows"	"\x55\x8B\xEC\x8B\x45\x0C\x53\x8B\xD9\x56\x57\x83\xF8\xFF\x75\x2A\xFF\xB3\x58\x20\x00\x00"
 				"linux"		"@_ZN9CTFPlayer10GetMaxAmmoEii"
+			}
+			"Studio_FindAttachment" //int ( const CStudioHdr *pStudioHdr, const char *pAttachmentName ) <- "alt-origin"
+			{
+				"windows"	"\x55\x8B\xEC\x53\x56\x57\x8B\x7D\x08\x85\xFF"
+				"linux"		"@_Z21Studio_FindAttachmentPK10CStudioHdrPKc"
+			}
+			"CBaseAnimating::GetAttachment" //bool ( int iAttachment, Vector &absOrigin, QAngle &absAngles ) <- "alt-origin"
+			{
+				"windows"	"\x55\x8B\xEC\x8B\x01\x8D\x55\xD0\x83\xEC\x30\x8B\x80\x3C\x03\x00\x00\x53\x52\xFF\x75\x08\xFF\xD0\xFF\x75\x10"
+				"linux"		"@_ZN14CBaseAnimating13GetAttachmentEiR6VectorR6QAngle"
+			}
+			"CBaseAnimatingOverlay::AddGestureSequence" //( int sequence, bool autokill )
+			{
+				"windows"	"\x55\x8B\xEC\x56\x6A\x00\xFF\x75\x08\x8B\xF1\xE8\x2A\x2A\x2A\x2A\x85\xC0\x78\x2A"
+				"linux"		"@_ZN21CBaseAnimatingOverlay18AddGestureSequenceEib"
 			}
 		}
 		"Offsets"
@@ -56,6 +70,11 @@
 				"linux"		"24"
 			}
 			
+			"CTFBaseBoss::GetCurrencyValue"
+			{
+				"windows"	"328"
+				"linux"		"333"
+			}
 			"CBaseEntity::WorldSpaceCenter"		
 			{		
 				"windows"	"149"		
@@ -100,6 +119,11 @@
 			{
 				"windows"	"49"
 				"linux"		"50"
+			}
+			"INextBot::GetVisionInterface"
+			{
+				"windows"	"51"
+				"linux"		"52"
 			}
 			"INextBot::Upkeep"
 			{
@@ -255,7 +279,17 @@
 			{
 				"windows"	"84"
 				"linux"		"85"
-			}	
+			}
+			"IVision::GetPrimaryKnownThreat"
+			{
+				"windows"	"48"
+				"linux"		"49"
+			}
+			"CKnownEntity::GetEntity"
+			{
+				"windows"	"3"
+				"linux"		"4"
+			}
 			"IBody::GetSolidMask"
 			{
 				"windows"	"80"

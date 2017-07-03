@@ -143,7 +143,7 @@ methodmap BaseNPC __nullable__
 		SetEntProp(npc, Prop_Data, "m_nSolidType", 0); 
 
 		ActivateEntity(npc);
-		
+				
 		char strName[64];
 		Format(strName, sizeof(strName), "basenpc_%x", EntIndexToEntRef(npc));
 		
@@ -1431,8 +1431,7 @@ public void PetMedicThink(int iEntity)
 	if(bHealing)
 	{
 		int iPitch = npc.LookupPoseParameter("body_pitch");
-		int iYaw   = npc.LookupPoseParameter("body_yaw");
-		if(iPitch < 0 || iYaw < 0)
+		if(iPitch < 0)
 			return;		
 	
 		//Body pitch
@@ -1445,26 +1444,6 @@ public void PetMedicThink(int iEntity)
 		
 		ang[0] = clamp(ang[0], -44.0, 89.0);
 		npc.SetPoseParameter(iPitch, ApproachAngle(ang[0], flPitch, 1.0));
-		
-/*		//Body yaw		
-		float flYaw   = npc.GetPoseParameter(iYaw);
-		float vecForward[3], vecRight[3], vecUp[3];
-		SDKCall(g_hGetVectors, iEntity, vecForward, vecRight, vecUp);
-		
-		float ownerDir[3]; SubtractVectors(WorldSpaceCenter(client), WorldSpaceCenter(iEntity), ownerDir);
-		NormalizeVector(ownerDir, ownerDir);
-		
-		float angle     = VecToYaw(vecForward);
-		float angleDiff = VecToYaw(ownerDir);
-		angleDiff = AngleDiff(angleDiff, angle + flYaw);
-		
-		angleDiff = -angleDiff;
-		angleDiff = AngleNormalize(angleDiff);
-		angleDiff = clamp(angleDiff, -44.0, 44.0);
-		
-		PrintToServer("%f %f", angleDiff, angle);
-		
-		npc.SetPoseParameter(iYaw, Approach(flYaw + angleDiff, flYaw, 2.0));*/
 		
 		if(!IsPlayerAlive(client))
 		{
@@ -1495,6 +1474,8 @@ public void PetMedicThink(int iEntity)
 		
 		npc.SetPoseParameter(iPitch, ApproachAngle(0.0, npc.GetPoseParameter(iPitch), 0.5));
 	}
+	
+	//We don't wanna fall too behind.
 	
 	float flDistance = GetVectorDistance(flCPos, WorldSpaceCenter(iEntity));
 	if(flDistance <= 150.0)	
