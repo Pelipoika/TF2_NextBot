@@ -70,6 +70,11 @@ public void OnMapStart()
 	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_spin.wav");
 	PrecacheSound("mvm/sentrybuster/mvm_sentrybuster_loop.wav");
 	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_intro.wav");
+	
+	PrecacheSound("^mvm/sentrybuster/mvm_sentrybuster_step_01.wav");
+	PrecacheSound("^mvm/sentrybuster/mvm_sentrybuster_step_02.wav");
+	PrecacheSound("^mvm/sentrybuster/mvm_sentrybuster_step_03.wav");
+	PrecacheSound("^mvm/sentrybuster/mvm_sentrybuster_step_04.wav");
 
 	PrecacheScriptSound("MVM.SentryBusterExplode");
 	PrecacheScriptSound("MVM.SentryBusterSpin");
@@ -368,9 +373,13 @@ public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, 
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, false);                                     return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturnVector(hReturn, view_as<float>( { 0.0, 0.0, 1.0 } )); return MRES_Supercede; }
 
-public MRESReturn CBaseAnimating_HandleAnimEvent(int pThis, Handle hReturn, Handle hParams)
+public MRESReturn CBaseAnimating_HandleAnimEvent(int pThis, Handle hParams)
 {
-	PrintToChatAll("CBaseAnimating_HandleAnimEvent");
+	int event = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_Int);
+	if(event == 7001)	//Footstep
+	{
+		EmitGameSoundToAll("MVM.SentryBusterStep", pThis);
+	}
 }
 
 public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b : a)); }
@@ -554,8 +563,8 @@ public void OnPluginStart()
 	g_hShouldCollideWith  = DHookCreateEx(hConf, "ILocomotion::ShouldCollideWith",  HookType_Raw, ReturnType_Bool,      ThisPointer_Address, ILocomotion_ShouldCollideWith);
 	DHookAddParam(g_hShouldCollideWith, HookParamType_CBaseEntity);
 	
-	g_hHandleAnimEvent    = DHookCreateEx(hConf, "CBaseAnimating::HandleAnimEvent", HookType_Entity, ReturnType_Void, ThisPointer_CBaseEntity, CBaseAnimating_HandleAnimEvent);
-	DHookAddParam(g_hHandleAnimEvent, HookParamType_Unknown);
+	g_hHandleAnimEvent    = DHookCreateEx(hConf, "CBaseAnimating::HandleAnimEvent",  HookType_Entity, ReturnType_Void,   ThisPointer_CBaseEntity, CBaseAnimating_HandleAnimEvent);
+	DHookAddParam(g_hHandleAnimEvent, HookParamType_ObjectPtr, -1);
 		
 	delete hConf;
 }
