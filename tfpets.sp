@@ -5,6 +5,7 @@
 #include <PathFollower_Nav>
 #include <dhooks>
 #include <dynamic>
+#include <CBaseAnimatingOverlay>
 
 #pragma newdecls required;
 
@@ -58,7 +59,6 @@ Handle g_hGetVelocity;
 Handle g_hSetVelocity;
 Handle g_hStudioFrameAdvance;
 Handle g_hJump;
-Handle g_hResetSequenceInfo;
 Handle g_hDispatchAnimEvents;
 Handle g_hGetMaxAcceleration;
 Handle g_hGetGroundSpeed;
@@ -68,6 +68,7 @@ Handle g_hLookupPoseParameter;
 Handle g_hSetPoseParameter;
 Handle g_hGetPoseParameter;
 Handle g_hLookupSequence;
+Handle g_hAddGestureSequence;
 Handle g_hSDKWorldSpaceCenter;
 
 //Stuck detection
@@ -84,6 +85,7 @@ Handle g_hGetEntity;
 Handle g_hGetBot;
 
 //DHooks
+Handle g_hHandleAnimEvent;
 Handle g_hGetFrictionSideways;
 Handle g_hGetStepHeight;
 Handle g_hGetGravity;
@@ -150,6 +152,9 @@ methodmap BaseNPC __nullable__
 		
 		SetEntityFlags(npc, FL_NOTARGET);
 		
+		//Animevents 
+		DHookEntity(g_hHandleAnimEvent,  true, npc);
+		
 		SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
 		SetEntProp(npc, Prop_Data, "m_takedamage", 0);
 		SetEntProp(npc, Prop_Data, "m_lifeState", 1); 
@@ -165,6 +170,8 @@ methodmap BaseNPC __nullable__
 		brain.SetInt ("Weapon",  INVALID_ENT_REFERENCE);
 		brain.SetFloat("MoveSpeed", 150.0);
 		brain.SetFloat("OutOfRange", 300.0);
+		brain.SetBool("DoingSpecial", false);
+		brain.SetVector("SpecialPos", NULL_VECTOR);
 		brain.SetName(strName);
 		
 		SDKHook(npc, SDKHook_Think, BasicPetThink);
@@ -304,6 +311,58 @@ methodmap BaseNPC __nullable__
 		}
 	}
 	
+	property bool DoingSpecial
+	{
+		public get()			
+		{
+			bool DoingSpecial = false;
+		
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				DoingSpecial = brain.GetBool("DoingSpecial");
+			}
+			
+			return DoingSpecial;
+		}
+		public set(bool DoingSpecial)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetBool("DoingSpecial", DoingSpecial);
+			}
+		}
+	}
+	
+	public bool GetSpecialPos(float[3] value)
+	{
+		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
+		if (offset == INVALID_DYNAMIC_OFFSET)
+		{
+			offset = this.GetBrainInterface().GetMemberOffset("SpecialPos");
+			if (offset == INVALID_DYNAMIC_OFFSET)
+				SetFailState("A serious error occured in Dynamic!");
+		}
+		this.GetBrainInterface().GetVectorByOffset(offset, value);
+		return true;
+	}
+
+	public void SetSpecialPos(const float[3] value)
+	{
+		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
+		if (offset == INVALID_DYNAMIC_OFFSET)
+		{
+			offset = this.GetBrainInterface().GetMemberOffset("SpecialPos");
+			if (offset == INVALID_DYNAMIC_OFFSET)
+			{
+				offset = this.GetBrainInterface().SetVector("SpecialPos", value);
+				return;
+			}
+		}
+		this.GetBrainInterface().SetVectorByOffset(offset, value);
+	}
+	
 	public void JumpAnim(char[] buffer, int maxlength)
 	{
 		Dynamic brain = this.GetBrainInterface();
@@ -375,11 +434,22 @@ methodmap BaseNPC __nullable__
 			SDKCall(g_hResetSequence, this.index, iSequence);
 	}
 	
-	public void PlayGesture(const char[] anim)
+	public bool IsPlayingGesture(const char[] anim)
 	{
-//		int iAnim = this.LookupSequence(anim);
-//		AnimOverlayHandler handler = AnimOverlayHandler(this.index);
-//		handler.AddGestureSequence(iAnim);
+		int iSequence = this.LookupSequence(anim);
+		if(iSequence >= 0)
+			return IsPlayingGesture(this.index, iSequence);
+		
+		return false;
+	}
+	
+	public int PlayGesture(const char[] anim)
+	{
+		int iSequence = this.LookupSequence(anim);
+		if(iSequence < 0)
+			return -1;
+		
+		return SDKCall(g_hAddGestureSequence, this.index, iSequence, true);
 	}
 	
 	public void CreatePather(int iTarget, float flStep, float flJump, float flDrop, int iSolid, float flAhead, float flRePath, float flHull)
@@ -657,8 +727,6 @@ methodmap PetTank < BaseNPC
 		brain.SetInt("Bomb", INVALID_ENT_REFERENCE);
 		brain.SetFloat("DeployStartTime", 0.0);
 		brain.SetBool("Deploying", false);
-		brain.SetBool("DoingSpecial", false);
-		brain.SetVector("DeployPos", NULL_VECTOR);
 		
 		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("movement");
@@ -747,30 +815,6 @@ methodmap PetTank < BaseNPC
 		}
 	}
 	
-	property bool DoingSpecial
-	{
-		public get()			
-		{
-			bool DoingSpecial = false;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				DoingSpecial = brain.GetBool("DoingSpecial");
-			}
-			
-			return DoingSpecial;
-		}
-		public set(bool DoingSpecial)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetBool("DoingSpecial", DoingSpecial);
-			}
-		}
-	}
-	
 	property bool Deploying
 	{
 		public get()			
@@ -818,34 +862,6 @@ methodmap PetTank < BaseNPC
 			}
 		}
 	}
-	
-	public bool GetDeployPos(float[3] value)
-	{
-		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
-		if (offset == INVALID_DYNAMIC_OFFSET)
-		{
-			offset = this.GetBrainInterface().GetMemberOffset("DeployPos");
-			if (offset == INVALID_DYNAMIC_OFFSET)
-				SetFailState("A serious error occured in Dynamic!");
-		}
-		this.GetBrainInterface().GetVectorByOffset(offset, value);
-		return true;
-	}
-
-	public void SetDeployPos(const float[3] value)
-	{
-		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
-		if (offset == INVALID_DYNAMIC_OFFSET)
-		{
-			offset = this.GetBrainInterface().GetMemberOffset("DeployPos");
-			if (offset == INVALID_DYNAMIC_OFFSET)
-			{
-				offset = this.GetBrainInterface().SetVector("DeployPos", value);
-				return;
-			}
-		}
-		this.GetBrainInterface().SetVectorByOffset(offset, value);
-	}
 }
 
 methodmap PetGhost < BaseNPC
@@ -889,7 +905,6 @@ methodmap PetHeavy < BaseNPC
 		
 		//Controls 9 way blend animation managing
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
-		SDKHook(pet.index, SDKHook_Think, PetHeavyThink);
 		
 		return view_as<PetHeavy>(pet);
 	}
@@ -1065,7 +1080,7 @@ methodmap PetMerasmus < BaseNPC
 {
 	public PetMerasmus(int client, float vecPos[3], float vecAng[3])
 	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/merasmus/merasmus.mdl", "0.3");
+		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/merasmus/merasmus.mdl", "0.25");
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetRandomInt(1, 2));
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
@@ -1102,17 +1117,15 @@ methodmap PetSkeletonKing < BaseNPC
 		brain.SetString("MoveAnim", "run_MELEE");
 		brain.SetFloat("MoveSpeed", 150.0);
 		brain.SetString("IdleAnim", "stand_MELEE");
-		brain.SetFloat("OutOfRange", 400.0);
+		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
 		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
-		
-		char anim[32];
-		Format(anim, sizeof(anim), "spawn0%i", GetRandomInt(1, 7));
-		pet.SetAnimation(anim);	
 		pet.Pathing = true;
 		
+		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
+		SDKHook(pet.index, SDKHook_Think, PetSkeleKingThink);
 		
 		return view_as<PetSkeletonKing>(pet);
 	}
@@ -1163,6 +1176,71 @@ public void BasicPetThink(int iEntity)
 	}
 }
 
+public void PetSkeleKingThink(int iEntity)
+{
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
+	{
+		AcceptEntityInput(iEntity, "Kill");
+		return;
+	}
+	
+	//taunt_demo_nuke_shroomcloud
+	PetSkeletonKing npc = view_as<PetSkeletonKing>(iEntity);
+	npc.Update();
+	
+	float flOrigin[3], flAbsAngles[3];
+	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
+	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+	
+	float flMoveSpeed  = npc.MoveSpeed;
+	float flOutOfRange = npc.OutOfRange;
+	
+	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
+	float flDistance = GetVectorDistance(flCPos, flOrigin);
+	
+	//We don't wanna fall too behind.
+	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
+
+	//Stomp
+	if(npc.DoingSpecial)
+	{
+		float SpecialPos[3];
+		npc.GetSpecialPos(SpecialPos);
+		
+		if(GetVectorDistance(SpecialPos, flOrigin) <= 20.0 || !npc.Pathing)
+		{
+			if(npc.Pathing)
+				npc.PlayGesture("MELEE_Swing3");
+				
+			npc.Pathing = false;
+			
+			if (!npc.IsPlayingGesture("MELEE_Swing3"))
+			{
+				npc.DoingSpecial = false;
+				PF_SetGoalEntity(npc.index, client);
+			}
+		}
+	}
+	else
+	{
+		if(flDistance <= (flOutOfRange / 2))
+		{
+			if(npc.Pathing)
+			{
+				npc.Pathing = false;
+			}
+		}
+		else
+		{
+			if(!npc.Pathing)
+			{
+				npc.Pathing = true;
+			}
+		}
+	}
+}
+
 public void PetTankThink(int iEntity)
 {
 	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
@@ -1192,20 +1270,20 @@ public void PetTankThink(int iEntity)
 	bool Deploying = npc.Deploying;
 	int Bomb = npc.Bomb;
 	
-	float DeployPos[3];
-	npc.GetDeployPos(DeployPos);
+	float SpecialPos[3];
+	npc.GetSpecialPos(SpecialPos);
 	
 	//Start Deploy
 	if(!Deploying && npc.DoingSpecial)
 	{
-		if(GetVectorDistance(DeployPos, flOrigin) < 20.0)
+		if(GetVectorDistance(SpecialPos, flOrigin) < 20.0)
 		{
 			SetEntPropFloat(npc.LeftTrack, Prop_Send, "m_flPlaybackRate", 0.0);
 			SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 0.0);
 			
 			EmitSoundToAll(")mvm/mvm_tank_deploy.wav", iEntity, _, _, _, 0.30);
 			
-			npc.SetDeployPos(NULL_VECTOR);
+			npc.SetSpecialPos(NULL_VECTOR);
 			npc.Pathing = false;
 			npc.SetAnimation("deploy");
 			npc.Deploying = true;
@@ -1238,7 +1316,7 @@ public void PetTankThink(int iEntity)
 			npc.Deploying = false;
 			PF_SetGoalEntity(npc.index, client);
 			npc.Pathing = true;
-			npc.SetDeployPos(NULL_VECTOR);
+			npc.SetSpecialPos(NULL_VECTOR);
 			
 			npc.SetAnimation("movement");			
 			AcceptEntityInput(npc.Bomb, "Kill");
@@ -1250,7 +1328,7 @@ public void PetTankThink(int iEntity)
 	
 	if(!Deploying && !npc.DoingSpecial)
 	{
-		if(flDistance <= 150.0)	
+		if(flDistance <= (flOutOfRange / 2))	
 		{
 			if(npc.Pathing)
 			{
@@ -1268,28 +1346,6 @@ public void PetTankThink(int iEntity)
 				SetEntPropFloat(npc.RightTrack, Prop_Send, "m_flPlaybackRate", 1.0);
 			}
 		}
-	}
-}
-
-public void PetHeavyThink(int iEntity)
-{
-	PetHeavy npc = view_as<PetHeavy>(iEntity);
-	npc.Update();
-	
-	float flAbsAngles[3]; GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
-	
-	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-	
-	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
-	float flCAng[3]; GetClientEyeAngles(client, flCAng);
-	
-	if(!npc.Pathing)
-	{
-	//	int iWeapon = npc.Weapon;
-	}
-	else
-	{
-		
 	}
 }
 
@@ -1316,12 +1372,8 @@ public Action Listener_Voice(int client, char[] command, int args)
 		if(!bFound)
 			return Plugin_Continue;
 		
-		PetTank npc = view_as<PetTank>(iEntity);
-		bool isTank = (npc.Bomb != INVALID_ENT_REFERENCE);
-		
-		float flDeployStart = GetGameTime() - npc.DeployStartTime;
-		
-		if (isTank && !npc.Deploying && flDeployStart >= 20.0)
+		BaseNPC npc = view_as<BaseNPC>(iEntity);
+		if (!npc.DoingSpecial)
 		{
 			float StartOrigin[3], Angles[3], vecPos[3];
 			GetClientEyeAngles(client, Angles);
@@ -1335,7 +1387,7 @@ public Action Listener_Voice(int client, char[] command, int args)
 			
 			if(PF_IsPathToVectorPossible(npc.index, vecPos))
 			{			
-				npc.SetDeployPos(vecPos);
+				npc.SetSpecialPos(vecPos);
 				PF_SetGoalVector(npc.index, vecPos);
 				npc.Pathing = true;
 				npc.DoingSpecial = true;
@@ -1430,7 +1482,7 @@ public void PetEngineerThink(int iEntity)
 		float flOutOfRange = npc.OutOfRange;
 		SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
 		
-		if(flDistance <= 150.0)	
+		if(flDistance <= (flOutOfRange / 2))	
 		{
 			if(npc.Pathing)
 			{
@@ -1555,7 +1607,7 @@ public void PetMedicThink(int iEntity)
 	float flOutOfRange = npc.OutOfRange;
 	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
 	
-	if(flDistance <= 150.0)	
+	if(flDistance <= (flOutOfRange / 2))	
 	{
 		if(npc.Pathing)
 		{
@@ -1590,12 +1642,6 @@ public void Blend9Think(int iEntity)
 {
 	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
 	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
-	{
-		AcceptEntityInput(iEntity, "Kill");
-		return;
-	}
-	
-	if(client == -1)
 	{
 		AcceptEntityInput(iEntity, "Kill");
 		return;
@@ -2149,11 +2195,6 @@ public void OnPluginStart()
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
 	if ((g_hResetSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::ResetSequence signature!"); 
 
-	//ResetSequenceInfo( );
-	StartPrepSDKCall(SDKCall_Entity);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequenceInfo");
-	if((g_hResetSequenceInfo = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::ResetSequenceInfo");
-
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::MyNextBotPointer");
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
@@ -2277,6 +2318,14 @@ public void OnPluginStart()
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);	//return index
 	if((g_hLookupSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for LookupSequence");
 	
+	//int CBaseAnimatingOverlay::AddGestureSequence( int nSequence, bool autokill )
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimatingOverlay::AddGestureSequence");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_AddParameter(SDKType_Bool, SDKPass_Plain); 
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	if((g_hAddGestureSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimatingOverlay::AddGestureSequence");
+	
 	//PluginBot SDKCalls
 	//Get NextBot pointer
 	StartPrepSDKCall(SDKCall_Raw);
@@ -2308,7 +2357,17 @@ public void OnPluginStart()
 	g_hGetHullMaxs         = DHookCreateEx(hConf, "IBody::GetHullMaxs",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMaxs);
 	g_hStartActivity       = DHookCreateEx(hConf, "IBody::StartActivity",            HookType_Raw, ReturnType_Bool,      ThisPointer_Address, IBody_StartActivity);
 	
+	//DHooks
+	g_hHandleAnimEvent    = DHookCreateEx(hConf, "CBaseAnimating::HandleAnimEvent",  HookType_Entity, ReturnType_Void,   ThisPointer_CBaseEntity, CBaseAnimating_HandleAnimEvent);
+	DHookAddParam(g_hHandleAnimEvent, HookParamType_ObjectPtr, -1);
+	
 	delete hConf;
+}
+
+public MRESReturn CBaseAnimating_HandleAnimEvent(int pThis, Handle hParams)
+{
+	int event = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_Int);
+	PrintToServer("%i : %i", pThis, event);
 }
 
 public Action Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
