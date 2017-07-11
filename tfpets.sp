@@ -172,6 +172,7 @@ methodmap BaseNPC __nullable__
 		brain.SetFloat("OutOfRange", 300.0);
 		brain.SetBool("DoingSpecial", false);
 		brain.SetVector("SpecialPos", NULL_VECTOR);
+		brain.SetFloat("SpecialTime", 0.0);
 		brain.SetName(strName);
 		
 		SDKHook(npc, SDKHook_Think, BasicPetThink);
@@ -335,6 +336,30 @@ methodmap BaseNPC __nullable__
 		}
 	}
 	
+	property float SpecialTime
+	{
+		public get()			
+		{
+			float SpecialTime = GetGameTime();
+		
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				SpecialTime = brain.GetFloat("SpecialTime");
+			}
+			
+			return SpecialTime;
+		}
+		public set(float SpecialTime)
+		{
+			Dynamic brain = this.GetBrainInterface();
+			if(brain.IsValid)
+			{
+				brain.SetFloat("SpecialTime", SpecialTime);
+			}
+		}
+	}
+	
 	public bool GetSpecialPos(float[3] value)
 	{
 		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
@@ -443,13 +468,13 @@ methodmap BaseNPC __nullable__
 		return false;
 	}
 	
-	public int PlayGesture(const char[] anim)
+	public int PlayGesture(const char[] anim, bool autokill = true)
 	{
 		int iSequence = this.LookupSequence(anim);
 		if(iSequence < 0)
 			return -1;
 		
-		return SDKCall(g_hAddGestureSequence, this.index, iSequence, true);
+		return SDKCall(g_hAddGestureSequence, this.index, iSequence, autokill);
 	}
 	
 	public void CreatePather(int iTarget, float flStep, float flJump, float flDrop, int iSolid, float flAhead, float flRePath, float flHull)
@@ -467,13 +492,13 @@ methodmap BaseNPC __nullable__
 		SDKCall(g_hApproach, this.GetLocomotionInterface(), vecGoal, 0.1);
 	}
 	
-	public void FaceTowards(const float vecGoal[3])
+	public void FaceTowards(const float vecGoal[3], float speed = 200.0)
 	{
 		//Sad!
 		ConVar flTurnRate = FindConVar("tf_base_boss_max_turn_rate");
 		float flPrevValue = flTurnRate.FloatValue;
 		
-		flTurnRate.FloatValue = 200.0;
+		flTurnRate.FloatValue = speed;
 		SDKCall(g_hFaceTowards, this.GetLocomotionInterface(), vecGoal);
 		flTurnRate.FloatValue = flPrevValue;
 	}
@@ -725,7 +750,6 @@ methodmap PetTank < BaseNPC
 		brain.SetInt("LeftTrack", INVALID_ENT_REFERENCE);
 		brain.SetInt("RightTrack", INVALID_ENT_REFERENCE);
 		brain.SetInt("Bomb", INVALID_ENT_REFERENCE);
-		brain.SetFloat("DeployStartTime", 0.0);
 		brain.SetBool("Deploying", false);
 		
 		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
@@ -835,30 +859,6 @@ methodmap PetTank < BaseNPC
 			if(brain.IsValid)
 			{
 				brain.SetBool("Deploying", Deploying);
-			}
-		}
-	}
-	
-	property float DeployStartTime
-	{
-		public get()			
-		{
-			float DeployStartTime = GetGameTime();
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				DeployStartTime = brain.GetFloat("DeployStartTime");
-			}
-			
-			return DeployStartTime;
-		}
-		public set(float DeployStartTime)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetFloat("DeployStartTime", DeployStartTime);
 			}
 		}
 	}
@@ -1084,6 +1084,7 @@ methodmap PetMerasmus < BaseNPC
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetRandomInt(1, 2));
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
+		SetEntProp(pet.index, Prop_Send, "m_nBody", 2);
 		
 		Dynamic brain = pet.GetBrainInterface();
 		//REQUIRED
@@ -1097,9 +1098,80 @@ methodmap PetMerasmus < BaseNPC
 		pet.SetAnimation("run_MELEE");
 		pet.Pathing = true;
 		
+		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
+		SDKHook(pet.index, SDKHook_Think, PetMerasmusThink);
 		
 		return view_as<PetMerasmus>(pet);
+	}
+}
+
+public void PetMerasmusThink(int iEntity)
+{
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
+	{
+		AcceptEntityInput(iEntity, "Kill");
+		return;
+	}
+	
+	PetMerasmus npc = view_as<PetMerasmus>(iEntity);
+	npc.Update();
+	
+	float flOrigin[3], flAbsAngles[3];
+	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
+	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+	
+	float flMoveSpeed  = npc.MoveSpeed;
+	float flOutOfRange = npc.OutOfRange;
+	
+	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
+	float flDistance = GetVectorDistance(flCPos, flOrigin);
+	
+	//We don't wanna fall too behind.
+	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
+
+	//Stomp
+	if(npc.DoingSpecial)
+	{
+		float SpecialTime = npc.SpecialTime - GetGameTime();
+		if(SpecialTime <= 0.0)
+		{	
+			float SpecialPos[3];
+			npc.GetSpecialPos(SpecialPos);
+			npc.PlayGesture("ACT_MP_ATTACK_STAND_ITEM1", true);
+			npc.FaceTowards(SpecialPos, 5000.0);
+			
+			float flVelocity[3];
+			MakeVectorFromPoints(flOrigin, SpecialPos, flVelocity);
+			NormalizeVector(flVelocity, flVelocity);
+			ScaleVector(flVelocity, 500.0);
+			flVelocity[2] = 500.0;
+			
+			MerasmusBomb(client, flOrigin, flVelocity, 100.0);
+			npc.SpecialTime = GetGameTime() + 5.0;
+		}
+		else
+			npc.DoingSpecial = false;
+		
+		PF_SetGoalEntity(npc.index, client);
+	}
+	else
+	{
+		if(flDistance <= (flOutOfRange / 2))
+		{
+			if(npc.Pathing)
+			{
+				npc.Pathing = false;
+			}
+		}
+		else
+		{
+			if(!npc.Pathing)
+			{
+				npc.Pathing = true;
+			}
+		}
 	}
 }
 
@@ -1211,14 +1283,36 @@ public void PetSkeleKingThink(int iEntity)
 		if(GetVectorDistance(SpecialPos, flOrigin) <= 20.0 || !npc.Pathing)
 		{
 			if(npc.Pathing)
-				npc.PlayGesture("MELEE_Swing3");
+			{
+				npc.PlayGesture("MELEE_Swing3", false);
+				npc.SpecialTime = GetGameTime() + 1.0;
+			}
 				
 			npc.Pathing = false;
 			
-			if (!npc.IsPlayingGesture("MELEE_Swing3"))
+			float SpecialTime = npc.SpecialTime - GetGameTime();
+			if(SpecialTime <= 0.0)
 			{
-				npc.DoingSpecial = false;
-				PF_SetGoalEntity(npc.index, client);
+				CreateParticle("duck_pickup_ring", flOrigin, flAbsAngles);
+				Explode(client, flOrigin, 100.0, 100.0, "", "");
+				npc.SpecialTime = GetGameTime() + 5.0; //Don't repeat
+			}
+			
+			//Needed because sometimes if i'm just calling !IsPlayingGesture it might miss it due to autokill.
+			int iSequence = npc.LookupSequence("MELEE_Swing3");
+			int iLayer = FindGestureLayer(npc.index, iSequence);
+			if(iLayer != -1)
+			{
+				CBaseAnimatingOverlay overlay = CBaseAnimatingOverlay(npc.index);
+				CAnimationLayer layer = overlay.GetLayer(iLayer);
+				
+				float flCycle = layer.Get(m_flCycle);
+				if(flCycle >= 1.0)
+				{
+					layer.KillMe();
+					npc.DoingSpecial = false;
+					PF_SetGoalEntity(npc.index, client);
+				}
 			}
 		}
 	}
@@ -1287,7 +1381,7 @@ public void PetTankThink(int iEntity)
 			npc.Pathing = false;
 			npc.SetAnimation("deploy");
 			npc.Deploying = true;
-			npc.DeployStartTime = GetGameTime();
+			npc.SpecialTime = GetGameTime();
 			view_as<BaseNPC>(Bomb).SetAnimation("deploy");
 		}
 	}
@@ -1295,7 +1389,7 @@ public void PetTankThink(int iEntity)
 	//Finish Deploy
 	if(Deploying)
 	{
-		float flDeployStart = GetGameTime() - npc.DeployStartTime;
+		float flDeployStart = GetGameTime() - npc.SpecialTime;
 		if(flDeployStart >= 7.25)
 		{
 			float bombPos[3]; bombPos = flOrigin;
@@ -1386,11 +1480,13 @@ public Action Listener_Voice(int client, char[] command, int args)
 			delete TraceRay;
 			
 			if(PF_IsPathToVectorPossible(npc.index, vecPos))
-			{			
+			{
 				npc.SetSpecialPos(vecPos);
 				PF_SetGoalVector(npc.index, vecPos);
 				npc.Pathing = true;
 				npc.DoingSpecial = true;
+				
+				CreateParticle("ping_circle", vecPos, NULL_VECTOR);
 			}
 		}
 	}
@@ -2366,8 +2462,8 @@ public void OnPluginStart()
 
 public MRESReturn CBaseAnimating_HandleAnimEvent(int pThis, Handle hParams)
 {
-	int event = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_Int);
-	PrintToServer("%i : %i", pThis, event);
+//	int event = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_Int);
+//	PrintToServer("%i : %i", pThis, event);
 }
 
 public Action Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
@@ -2590,6 +2686,28 @@ stock void Explode(int client, float flPos[3], float flDamage, float flRadius, c
 //    AcceptEntityInput(iBomb, "Detonate");
 	SDKHooks_TakeDamage(iBomb, client, client, 500.0);
 }  
+
+stock void MerasmusBomb(int client, float flPos[3], float flVelocity[3], float flDamage)
+{
+	int bomb = CreateEntityByName("tf_weaponbase_merasmus_grenade");
+	DispatchKeyValueVector(bomb, "origin", flPos);
+	DispatchKeyValue(bomb, "modelscale", "0.5");
+	DispatchKeyValue(bomb, "modelscale", "0.5");
+	SetEntityModel(bomb, "models/props_lakeside_event/bomb_temp.mdl");
+	SetEntProp(bomb, Prop_Send, "m_iTeamNum", GetClientTeam(client));
+	SetEntProp(bomb, Prop_Data, "m_iTeamNum", GetClientTeam(client));
+	SetEntPropEnt(bomb, Prop_Send, "m_hThrower", client);
+	SetEntPropEnt(bomb, Prop_Data, "m_hThrower", client);
+	SetEntPropEnt(bomb, Prop_Send, "m_hOwnerEntity", client);
+	SetEntPropEnt(bomb, Prop_Data, "m_hOwnerEntity", client);
+	DispatchSpawn(bomb);
+	
+	TeleportEntity(bomb, NULL_VECTOR, NULL_VECTOR, flVelocity);
+	
+	SetEntPropFloat(bomb, Prop_Data, "m_flDamage", 100.0);
+	SetEntDataFloat(bomb, 1248, GetGameTime() + 2.0);	//Fuse time
+	SetEntProp(bomb, Prop_Send, "m_CollisionGroup", 24);
+}
 
 stock bool TF2_IsMvM()
 {
