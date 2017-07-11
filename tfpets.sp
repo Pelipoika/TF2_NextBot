@@ -70,6 +70,8 @@ Handle g_hGetPoseParameter;
 Handle g_hLookupSequence;
 Handle g_hAddGestureSequence;
 Handle g_hSDKWorldSpaceCenter;
+Handle g_hStudio_FindAttachment;
+Handle g_hGetAttachment;
 
 //Stuck detection
 Handle g_hStuckMonitor;
@@ -100,9 +102,7 @@ Handle g_hGetCrouchHullHeight;
 Handle g_hGetHullMins;
 Handle g_hGetHullMaxs;
 
-//Merasmus
 //Sentry Buster
-//Skeleton King
 
 public Plugin myinfo = 
 {
@@ -187,7 +187,6 @@ methodmap BaseNPC __nullable__
 			return view_as<int>(this); 
 		}
 	}
-
 	public Dynamic GetBrainInterface()
 	{
 		char strName[64];
@@ -200,14 +199,12 @@ methodmap BaseNPC __nullable__
 		}
 		
 		return brain;
-	}
-	
+	}	
 	public Address GetLocomotionInterface()
 	{
 		Address pNB = SDKCall(g_hMyNextBotPointer, this.index);
 		return SDKCall(g_hGetLocomotionInterface, pNB);
-	}
-	
+	}	
 	public Address GetBodyInterface()
 	{
 		Address pNB = SDKCall(g_hMyNextBotPointer, this.index);
@@ -239,7 +236,6 @@ methodmap BaseNPC __nullable__
 			}
 		}
 	}
-	
 	property int Weapon
 	{
 		public get()			
@@ -263,7 +259,6 @@ methodmap BaseNPC __nullable__
 			}
 		}
 	}
-	
 	property float MoveSpeed
 	{
 		public get()			
@@ -287,7 +282,6 @@ methodmap BaseNPC __nullable__
 			}
 		}
 	}
-	
 	property float OutOfRange
 	{
 		public get()			
@@ -311,7 +305,6 @@ methodmap BaseNPC __nullable__
 			}
 		}
 	}
-	
 	property bool DoingSpecial
 	{
 		public get()			
@@ -335,7 +328,6 @@ methodmap BaseNPC __nullable__
 			}
 		}
 	}
-	
 	property float SpecialTime
 	{
 		public get()			
@@ -372,7 +364,6 @@ methodmap BaseNPC __nullable__
 		this.GetBrainInterface().GetVectorByOffset(offset, value);
 		return true;
 	}
-
 	public void SetSpecialPos(const float[3] value)
 	{
 		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
@@ -387,7 +378,6 @@ methodmap BaseNPC __nullable__
 		}
 		this.GetBrainInterface().SetVectorByOffset(offset, value);
 	}
-	
 	public void JumpAnim(char[] buffer, int maxlength)
 	{
 		Dynamic brain = this.GetBrainInterface();
@@ -396,7 +386,6 @@ methodmap BaseNPC __nullable__
 			brain.GetString("JumpAnim", buffer, maxlength);
 		}
 	}
-	
 	public void MoveAnim(char[] buffer, int maxlength)
 	{
 		Dynamic brain = this.GetBrainInterface();
@@ -405,7 +394,6 @@ methodmap BaseNPC __nullable__
 			brain.GetString("MoveAnim", buffer, maxlength);
 		}
 	}
-	
 	public void IdleAnim(char[] buffer, int maxlength)
 	{
 		Dynamic brain = this.GetBrainInterface();
@@ -414,17 +402,14 @@ methodmap BaseNPC __nullable__
 			brain.GetString("IdleAnim", buffer, maxlength);
 		}
 	}
-	
 	public Address GetStudioHdr()
 	{
 		return view_as<Address>(GetEntData(this.index, 283 * 4));
 	}
-	
 	public float GetPoseParameter(int iParameter)
 	{
 		return SDKCall(g_hGetPoseParameter, this.index, iParameter);
-	}
-	
+	}	
 	public void SetPoseParameter(int iParameter, float value)
 	{
 		Address pStudioHdr = this.GetStudioHdr();
@@ -432,8 +417,7 @@ methodmap BaseNPC __nullable__
 			return;
 			
 		SDKCall(g_hSetPoseParameter, this.index, pStudioHdr, iParameter, value);
-	}
-	
+	}	
 	public int LookupPoseParameter(const char[] szName)
 	{
 		Address pStudioHdr = this.GetStudioHdr();
@@ -441,8 +425,7 @@ methodmap BaseNPC __nullable__
 			return -1;
 			
 		return SDKCall(g_hLookupPoseParameter, this.index, pStudioHdr, szName);
-	}
-	
+	}	
 	public int LookupSequence(const char[] anim)
 	{
 		Address pStudioHdr = this.GetStudioHdr();
@@ -450,15 +433,13 @@ methodmap BaseNPC __nullable__
 			return -1;
 			
 		return SDKCall(g_hLookupSequence, pStudioHdr, anim);
-	}
-	
+	}	
 	public void SetAnimation(const char[] anim)
 	{
 		int iSequence = this.LookupSequence(anim);
 		if(iSequence >= 0)
 			SDKCall(g_hResetSequence, this.index, iSequence);
-	}
-	
+	}	
 	public bool IsPlayingGesture(const char[] anim)
 	{
 		int iSequence = this.LookupSequence(anim);
@@ -466,8 +447,7 @@ methodmap BaseNPC __nullable__
 			return IsPlayingGesture(this.index, iSequence);
 		
 		return false;
-	}
-	
+	}	
 	public int PlayGesture(const char[] anim, bool autokill = true)
 	{
 		int iSequence = this.LookupSequence(anim);
@@ -475,8 +455,7 @@ methodmap BaseNPC __nullable__
 			return -1;
 		
 		return SDKCall(g_hAddGestureSequence, this.index, iSequence, autokill);
-	}
-	
+	}	
 	public void CreatePather(int iTarget, float flStep, float flJump, float flDrop, int iSolid, float flAhead, float flRePath, float flHull)
 	{
 		PF_Create(this.index, flStep, flJump, flDrop, 0.6, iSolid, flAhead, flRePath, flHull);
@@ -485,13 +464,11 @@ methodmap BaseNPC __nullable__
 		PF_EnableCallback(this.index, PFCB_Approach, PluginBot_Approach);
 		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge, PluginBot_Jump);
 		PF_EnableCallback(this.index, PFCB_GetPathCost, PluginBot_PathCost);
-	}
-	
+	}	
 	public void Approach(const float vecGoal[3])
 	{
 		SDKCall(g_hApproach, this.GetLocomotionInterface(), vecGoal, 0.1);
-	}
-	
+	}	
 	public void FaceTowards(const float vecGoal[3], float speed = 200.0)
 	{
 		//Sad!
@@ -501,13 +478,11 @@ methodmap BaseNPC __nullable__
 		flTurnRate.FloatValue = speed;
 		SDKCall(g_hFaceTowards, this.GetLocomotionInterface(), vecGoal);
 		flTurnRate.FloatValue = flPrevValue;
-	}
-	
+	}	
 	public void Jump()
 	{
 		SDKCall(g_hJump, this.GetLocomotionInterface());
-	}
-	
+	}	
 	public void Update()
 	{
 		SDKCall(g_hStudioFrameAdvance, this.index);
@@ -520,18 +495,27 @@ methodmap BaseNPC __nullable__
 			SDKCall(g_hClearStuckStatus, this.GetLocomotionInterface(), "Un-Stuck");
 			TeleportEntity(this.index, WorldSpaceCenter(GetEntPropEnt(this.index, Prop_Send, "m_hOwnerEntity")), NULL_VECTOR, NULL_VECTOR);
 		}
-	}
-	
+	}	
 	public void GetVelocity(float vecOut[3])
 	{
 		SDKCall(g_hGetVelocity, this.GetLocomotionInterface(), vecOut);
-	}
-	
+	}	
 	public void SetVelocity(const float vec[3])
 	{
 		SDKCall(g_hSetVelocity, this.GetLocomotionInterface(), vec);
+	}	
+	public int FindAttachment(const char[] pAttachmentName)
+	{
+		Address pStudioHdr = this.GetStudioHdr();
+		if(pStudioHdr == Address_Null)
+			return -1;
+			
+		return SDKCall(g_hStudio_FindAttachment, pStudioHdr, pAttachmentName) + 1;
+	}	
+	public void GetAttachment(const char[] szName, float absOrigin[3], float absAngles[3])
+	{
+		SDKCall(g_hGetAttachment, this.index, this.FindAttachment(szName), absOrigin, absAngles);
 	}
-	
 	public int EquipItem(const char[] attachment, const char[] model, const char[] anim = "", int skin = 0, float flScale = 1.0)
 	{
 		int item = CreateEntityByName("prop_dynamic");
@@ -733,12 +717,6 @@ methodmap PetMedic < BaseNPC
 
 methodmap PetTank < BaseNPC
 {
-	//TODO
-	//0.33 - Pelipoika: How about you look at tank and say "Help!" voice command
-	//0.33 - Pelipoika: then the tank beeps
-	//0.33 - Pelipoika: and then you point somewhere and say "Go Go Go"
-	//0.33 - Pelipoika: And the tank deploys a bomb there
-
 	public PetTank(int client, float vecPos[3], float vecAng[3], const char[] model)
 	{
 		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.15", _, false);
@@ -1106,75 +1084,6 @@ methodmap PetMerasmus < BaseNPC
 	}
 }
 
-public void PetMerasmusThink(int iEntity)
-{
-	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
-	{
-		AcceptEntityInput(iEntity, "Kill");
-		return;
-	}
-	
-	PetMerasmus npc = view_as<PetMerasmus>(iEntity);
-	npc.Update();
-	
-	float flOrigin[3], flAbsAngles[3];
-	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
-	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
-	
-	float flMoveSpeed  = npc.MoveSpeed;
-	float flOutOfRange = npc.OutOfRange;
-	
-	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
-	float flDistance = GetVectorDistance(flCPos, flOrigin);
-	
-	//We don't wanna fall too behind.
-	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
-
-	//Stomp
-	if(npc.DoingSpecial)
-	{
-		float SpecialTime = npc.SpecialTime - GetGameTime();
-		if(SpecialTime <= 0.0)
-		{	
-			float SpecialPos[3];
-			npc.GetSpecialPos(SpecialPos);
-			npc.PlayGesture("ACT_MP_ATTACK_STAND_ITEM1", true);
-			npc.FaceTowards(SpecialPos, 5000.0);
-			
-			float flVelocity[3];
-			MakeVectorFromPoints(flOrigin, SpecialPos, flVelocity);
-			NormalizeVector(flVelocity, flVelocity);
-			ScaleVector(flVelocity, 500.0);
-			flVelocity[2] = 500.0;
-			
-			MerasmusBomb(client, flOrigin, flVelocity, 100.0);
-			npc.SpecialTime = GetGameTime() + 5.0;
-		}
-		else
-			npc.DoingSpecial = false;
-		
-		PF_SetGoalEntity(npc.index, client);
-	}
-	else
-	{
-		if(flDistance <= (flOutOfRange / 2))
-		{
-			if(npc.Pathing)
-			{
-				npc.Pathing = false;
-			}
-		}
-		else
-		{
-			if(!npc.Pathing)
-			{
-				npc.Pathing = true;
-			}
-		}
-	}
-}
-
 methodmap PetSkeletonKing < BaseNPC
 {
 	public PetSkeletonKing(int client, float vecPos[3], float vecAng[3])
@@ -1244,6 +1153,84 @@ public void BasicPetThink(int iEntity)
 		if(!npc.Pathing)
 		{
 			npc.Pathing = true;
+		}
+	}
+}
+
+public void PetMerasmusThink(int iEntity)
+{
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
+	{
+		AcceptEntityInput(iEntity, "Kill");
+		return;
+	}
+	
+	PetMerasmus npc = view_as<PetMerasmus>(iEntity);
+	npc.Update();
+	
+	float flOrigin[3], flAbsAngles[3];
+	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
+	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+	
+	float flMoveSpeed  = npc.MoveSpeed;
+	float flOutOfRange = npc.OutOfRange;
+	
+	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
+	float flDistance = GetVectorDistance(flCPos, flOrigin);
+	
+	//We don't wanna fall too behind.
+	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
+
+	//Stomp
+	if(npc.DoingSpecial)
+	{
+		float SpecialTime = npc.SpecialTime - GetGameTime();
+		if(SpecialTime <= 0.0)
+		{	
+			float SpecialPos[3];
+			npc.GetSpecialPos(SpecialPos);
+			npc.PlayGesture("ACT_MP_ATTACK_STAND_ITEM1", true);
+			npc.FaceTowards(SpecialPos, 5000.0);
+			
+			float origin[3], angles[3];
+			npc.GetAttachment("effect_hand_R", origin, angles);
+			CreateParticle("merasmus_shoot", origin, angles);
+			
+			float flVelocity[3];
+			MakeVectorFromPoints(origin, SpecialPos, flVelocity);
+			NormalizeVector(flVelocity, flVelocity);
+			ScaleVector(flVelocity, 500.0);
+			flVelocity[2] = 500.0;
+			
+			if (GetRandomInt(1, 10) == 1)
+				EmitGameSoundToAll("Halloween.MerasmusGrenadeThrowRare", iEntity);
+			else
+            	EmitGameSoundToAll("Halloween.MerasmusGrenadeThrow", iEntity);
+			
+			MerasmusBomb(client, origin, flVelocity, 50.0);
+			npc.SpecialTime = GetGameTime() + 5.0;
+		}
+		else
+			npc.DoingSpecial = false;
+		
+		PF_SetGoalEntity(npc.index, client);
+	}
+	else
+	{
+		if(flDistance <= (flOutOfRange / 2))
+		{
+			if(npc.Pathing)
+			{
+				npc.Pathing = false;
+			}
+		}
+		else
+		{
+			if(!npc.Pathing)
+			{
+				npc.Pathing = true;
+			}
 		}
 	}
 }
@@ -2213,6 +2200,16 @@ public void OnMapStart()
 	PrecacheSound("mvm/mvm_bomb_explode");
 	PrecacheSound("ui/quest_status_tick.wav"); 
 	
+	PrecacheSound("vo/halloween_merasmus/sf12_ranged_attack04.mp3"); 
+	PrecacheSound("vo/halloween_merasmus/sf12_ranged_attack05.mp3"); 
+	PrecacheSound("vo/halloween_merasmus/sf12_ranged_attack06.mp3"); 
+	PrecacheSound("vo/halloween_merasmus/sf12_ranged_attack07.mp3"); 
+	
+	PrecacheSound("vo/halloween_merasmus/sf12_grenades03.mp3"); 
+	PrecacheSound("vo/halloween_merasmus/sf12_grenades04.mp3"); 
+	PrecacheSound("vo/halloween_merasmus/sf12_grenades05.mp3"); 
+	PrecacheSound("vo/halloween_merasmus/sf12_grenades06.mp3"); 
+	
 	PrecacheModel("models/bots/merasmus/merasmus.mdl");
 	
 	for (int i = 0; i < sizeof(s_skeletonHatModels); i++)
@@ -2221,6 +2218,8 @@ public void OnMapStart()
 	}
 	
 	PrecacheModel("models/bots/skeleton_sniper_boss/skeleton_sniper_boss.mdl");
+	
+	PrecacheModel("models/props_lakeside_event/bomb_temp.mdl");
 	
 	PrecacheModel("models/props_halloween/ghost.mdl");
 	PrecacheModel("models/props_halloween/ghost_no_hat.mdl");
@@ -2400,6 +2399,28 @@ public void OnPluginStart()
 	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 	if((g_hLookupPoseParameter = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::LookupPoseParameter");
+	
+	//-----------------------------------------------------------------------------
+	// Purpose: lookup attachment by name
+	//-----------------------------------------------------------------------------
+	StartPrepSDKCall(SDKCall_Static);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "Studio_FindAttachment");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);	//pStudioHdr
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);		//pAttachmentName
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);	//return index
+	if((g_hStudio_FindAttachment = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for Studio_FindAttachment");
+	
+	//-----------------------------------------------------------------------------
+	// Purpose: Returns the world location and world angles of an attachment
+	// Input  : attachment name
+	// Output :	location and angles
+	//-----------------------------------------------------------------------------
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::GetAttachment");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);	//iAttachment
+	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_ByRef, _, VENCODE_FLAG_COPYBACK); //absOrigin
+	PrepSDKCall_AddParameter(SDKType_QAngle, SDKPass_ByRef, _, VENCODE_FLAG_COPYBACK); //absAngles
+	if((g_hGetAttachment = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::GetAttachment");
 	
 	//-----------------------------------------------------------------------------
 	// Purpose: Looks up a sequence by sequence name first, then by activity name.
@@ -2691,8 +2712,7 @@ stock void MerasmusBomb(int client, float flPos[3], float flVelocity[3], float f
 {
 	int bomb = CreateEntityByName("tf_weaponbase_merasmus_grenade");
 	DispatchKeyValueVector(bomb, "origin", flPos);
-	DispatchKeyValue(bomb, "modelscale", "0.5");
-	DispatchKeyValue(bomb, "modelscale", "0.5");
+	DispatchKeyValueFloat(bomb, "modelscale", 0.5);
 	SetEntityModel(bomb, "models/props_lakeside_event/bomb_temp.mdl");
 	SetEntProp(bomb, Prop_Send, "m_iTeamNum", GetClientTeam(client));
 	SetEntProp(bomb, Prop_Data, "m_iTeamNum", GetClientTeam(client));
@@ -2702,11 +2722,15 @@ stock void MerasmusBomb(int client, float flPos[3], float flVelocity[3], float f
 	SetEntPropEnt(bomb, Prop_Data, "m_hOwnerEntity", client);
 	DispatchSpawn(bomb);
 	
+	
 	TeleportEntity(bomb, NULL_VECTOR, NULL_VECTOR, flVelocity);
 	
-	SetEntPropFloat(bomb, Prop_Data, "m_flDamage", 100.0);
+	SetEntPropFloat(bomb, Prop_Data, "m_flDamage", flDamage);
+	SetEntPropFloat(bomb, Prop_Data, "m_flModelScale", 1.0);
+	SetEntPropFloat(bomb, Prop_Send, "m_flModelScale", 1.0);
 	SetEntDataFloat(bomb, 1248, GetGameTime() + 2.0);	//Fuse time
 	SetEntProp(bomb, Prop_Send, "m_CollisionGroup", 24);
+	SetEntProp(bomb, Prop_Data, "m_CollisionGroup", 24);
 }
 
 stock bool TF2_IsMvM()
