@@ -87,7 +87,6 @@ Handle g_hGetEntity;
 Handle g_hGetBot;
 
 //DHooks
-Handle g_hHandleAnimEvent;
 Handle g_hGetFrictionSideways;
 Handle g_hGetStepHeight;
 Handle g_hGetGravity;
@@ -151,9 +150,6 @@ methodmap BaseNPC __nullable__
 		DHookRaw(g_hGetHullMaxs,         true, pBody);
 		
 		SetEntityFlags(npc, FL_NOTARGET);
-		
-		//Animevents 
-		DHookEntity(g_hHandleAnimEvent,  true, npc);
 		
 		SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
 		SetEntProp(npc, Prop_Data, "m_takedamage", 0);
@@ -1208,7 +1204,7 @@ public void PetMerasmusThink(int iEntity)
 			else
             	EmitGameSoundToAll("Halloween.MerasmusGrenadeThrow", iEntity);
 			
-			MerasmusBomb(client, origin, flVelocity, 50.0);
+			MerasmusBomb(client, origin, flVelocity, 100.0);
 			npc.SpecialTime = GetGameTime() + 5.0;
 		}
 		else
@@ -2474,17 +2470,7 @@ public void OnPluginStart()
 	g_hGetHullMaxs         = DHookCreateEx(hConf, "IBody::GetHullMaxs",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMaxs);
 	g_hStartActivity       = DHookCreateEx(hConf, "IBody::StartActivity",            HookType_Raw, ReturnType_Bool,      ThisPointer_Address, IBody_StartActivity);
 	
-	//DHooks
-	g_hHandleAnimEvent    = DHookCreateEx(hConf, "CBaseAnimating::HandleAnimEvent",  HookType_Entity, ReturnType_Void,   ThisPointer_CBaseEntity, CBaseAnimating_HandleAnimEvent);
-	DHookAddParam(g_hHandleAnimEvent, HookParamType_ObjectPtr, -1);
-	
 	delete hConf;
-}
-
-public MRESReturn CBaseAnimating_HandleAnimEvent(int pThis, Handle hParams)
-{
-//	int event = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_Int);
-//	PrintToServer("%i : %i", pThis, event);
 }
 
 public Action Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
