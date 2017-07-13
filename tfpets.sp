@@ -520,6 +520,7 @@ methodmap BaseNPC __nullable__
 		DispatchSpawn(item);
 		
 		SetEntProp(item, Prop_Send, "m_nSkin", skin);
+		SetEntProp(item, Prop_Send, "m_hOwnerEntity", this.index);
 		SetEntProp(item, Prop_Send, "m_fEffects", EF_BONEMERGE|EF_PARENT_ANIMATES);
 	
 		if(!StrEqual(anim, ""))
@@ -535,37 +536,6 @@ methodmap BaseNPC __nullable__
 		AcceptEntityInput(item, "SetParentAttachmentMaintainOffset"); 
 		
 		return item;
-	}
-}
-
-methodmap PetSkeleton < BaseNPC
-{
-	public PetSkeleton(int client, float vecPos[3], float vecAng[3])
-	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/skeleton_sniper/skeleton_sniper.mdl", "0.5");
-		
-		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        (GetRandomInt(0, 1) == 1) ? (GetClientTeam(client) - 2) : GetRandomInt(2, 3));
-		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
-		
-		Dynamic brain = pet.GetBrainInterface();
-		brain.SetBool ("Healing",      false);
-		brain.SetInt  ("BeamEntity",   INVALID_ENT_REFERENCE);
-		brain.SetFloat("NextHealTime", 0.0);
-		
-		//REQUIRED
-		brain.SetString("MoveAnim", "run_MELEE");
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetString("IdleAnim", "stand_MELEE");
-		brain.SetFloat("OutOfRange", 300.0);
-		//////////
-		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
-		pet.SetAnimation("run_MELEE");
-		pet.Pathing = true;
-		
-		SDKHook(pet.index, SDKHook_Think, Blend9Think);
-		
-		return view_as<PetSkeleton>(pet);
 	}
 }
 
@@ -838,66 +808,6 @@ methodmap PetTank < BaseNPC
 	}
 }
 
-methodmap PetGhost < BaseNPC
-{
-	public PetGhost(int client, float vecPos[3], float vecAng[3], const char[] model)
-	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.5");
-		
-		SetEntPropFloat(pet.index, Prop_Data, "m_flGravity",    200.0);		
-		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
-		
-		pet.CreatePather(client, 18.0, 1000.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
-		pet.Pathing = true;
-		pet.SetAnimation("idle");
-		
-		return view_as<PetGhost>(pet);
-	}
-}
-
-methodmap PetHeavy < BaseNPC
-{
-	public PetHeavy(int client, float vecPos[3], float vecAng[3], const char[] model)
-	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.5");
-		
-		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
-		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
-		
-		Dynamic brain = pet.GetBrainInterface();
-		
-		//REQUIRED IF YOU'RE GOING TO USE Blend9Think
-		brain.SetString("MoveAnim", "Run_PRIMARY");
-		brain.SetFloat("MoveSpeed", 115.0);
-		brain.SetString("IdleAnim", "Stand_PRIMARY");
-		brain.SetFloat("OutOfRange", 300.0);
-		//////////
-		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
-		pet.SetAnimation("Stand_PRIMARY");
-		pet.Pathing = true;
-		
-		//Controls 9 way blend animation managing
-		SDKHook(pet.index, SDKHook_Think, Blend9Think);
-		
-		return view_as<PetHeavy>(pet);
-	}
-	
-	public void StartFiring(int iEnt)
-	{
-		int iWeapon = this.Weapon;
-		if(iWeapon != INVALID_ENT_REFERENCE)
-		{
-			
-		}
-	}
-	
-	public void StopFiring()
-	{
-		
-	}
-}
-
 methodmap PetEngineer < BaseNPC
 {
 	public PetEngineer(int client, float vecPos[3], float vecAng[3])
@@ -1108,6 +1018,57 @@ methodmap PetSkeletonKing < BaseNPC
 	}
 }
 
+methodmap PetMiniMe < BaseNPC
+{
+	public PetMiniMe(int client, float vecPos[3], float vecAng[3])
+	{
+		char strModel[PLATFORM_MAX_PATH];
+		GetEntPropString(client, Prop_Data, "m_ModelName", strModel, PLATFORM_MAX_PATH);
+		
+		BaseNPC pet = new BaseNPC(vecPos, vecAng, strModel, "0.5");
+		
+//		SetEntProp(pet.index, Prop_Data, "m_nBody", 2);
+		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
+		SetEntProp(pet.index, Prop_Send, "m_hOwnerEntity", client);
+		SetEntPropEnt(pet.index, Prop_Send, "m_hOwnerEntity", client);
+		
+		Dynamic brain = pet.GetBrainInterface();
+		//REQUIRED
+		brain.SetString("MoveAnim", "run_MELEE");
+		brain.SetFloat("MoveSpeed", 150.0);
+		brain.SetString("IdleAnim", "stand_MELEE");
+		brain.SetFloat("OutOfRange", 300.0);
+		//////////
+		
+		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.Pathing = true;
+		
+		SDKHook(pet.index, SDKHook_Think, Blend9Think);
+		
+		//Mirror wearables
+		int iWearable = -1;
+		while ((iWearable = FindEntityByClassname(iWearable, "tf_wearable*")) != -1)
+		{
+			if(!GetEntProp(iWearable, Prop_Send, "m_bDisguiseWearable") && GetEntPropEnt(iWearable, Prop_Send, "m_hOwnerEntity") == client)
+			{
+				GetEntPropString(iWearable, Prop_Data, "m_ModelName", strModel, PLATFORM_MAX_PATH);
+				pet.EquipItem("head", strModel, _, GetClientTeam(client) - 2);
+			}
+		}
+		
+		int iMelee = GetPlayerWeaponSlot(client, 2);
+		
+		int table = FindStringTable("modelprecache");
+		ReadStringTable(table, GetEntProp(iMelee, Prop_Send, "m_iWorldModelIndex"), strModel, PLATFORM_MAX_PATH);  
+		
+		iMelee = pet.EquipItem("head", strModel, _, GetClientTeam(client) - 2);
+		
+		SetVariantString("1.0");
+		AcceptEntityInput(iMelee, "SetModelScale");
+		
+		return view_as<PetMiniMe>(pet);
+	}
+}
 
 //Stop when near owner
 //Adjust speed near owner
@@ -1136,6 +1097,14 @@ public void BasicPetThink(int iEntity)
 	
 	//We don't wanna fall too behind.
 	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
+	
+	//Do something 
+	if(npc.DoingSpecial)
+	{
+		npc.DoingSpecial = false;
+		PF_SetGoalEntity(npc.index, client);
+		PrintToChat(client, "No.");
+	}
 	
 	if(flDistance <= (flOutOfRange / 2))	
 	{
@@ -1194,7 +1163,8 @@ public void PetMerasmusThink(int iEntity)
 			CreateParticle("merasmus_shoot", origin, angles);
 			
 			float flVelocity[3];
-			MakeVectorFromPoints(origin, SpecialPos, flVelocity);
+			GetClientEyeAngles(client, flVelocity);
+			GetAngleVectors(flVelocity, flVelocity, NULL_VECTOR, NULL_VECTOR);
 			NormalizeVector(flVelocity, flVelocity);
 			ScaleVector(flVelocity, 500.0);
 			flVelocity[2] = 500.0;
@@ -1205,7 +1175,7 @@ public void PetMerasmusThink(int iEntity)
             	EmitGameSoundToAll("Halloween.MerasmusGrenadeThrow", iEntity);
 			
 			MerasmusBomb(client, origin, flVelocity, 100.0);
-			npc.SpecialTime = GetGameTime() + 5.0;
+			npc.SpecialTime = GetGameTime() + 3.0;
 		}
 		else
 			npc.DoingSpecial = false;
@@ -1507,6 +1477,14 @@ public void PetEngineerThink(int iEntity)
 	float flCPos[3];
 	GetClientAbsOrigin(client, flCPos);
 	
+	//Do something 
+	if(npc.DoingSpecial)
+	{
+		npc.DoingSpecial = false;
+		PF_SetGoalEntity(npc.index, client);
+		PrintToChat(client, "No.");
+	}
+	
 	if(npc.NextAmmoCheckTime - GetGameTime() <= 0.0)
 	{
 		npc.NextAmmoCheckTime = GetGameTime() + 5.0;
@@ -1621,9 +1599,17 @@ public void PetMedicThink(int iEntity)
 		AcceptEntityInput(iEntity, "Kill");
 		return;
 	}
-
+	
 	PetMedic npc = view_as<PetMedic>(iEntity);
 	npc.Update();
+	
+	//Do something 
+	if(npc.DoingSpecial)
+	{
+		npc.DoingSpecial = false;
+		PF_SetGoalEntity(npc.index, client);
+		PrintToChat(client, "No.");
+	}
 	
 	float flAbsAngles[3]; GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
 	
@@ -2050,13 +2036,10 @@ public Action Command_PetMenu(int client, int argc)
 	menu.AddItem("0", "- Remove Pet");
 	menu.AddItem("1", "Tank");
 	menu.AddItem("2", "Medic");
-	menu.AddItem("3", "Ghost");
-	menu.AddItem("4", "Robot Heavy");
-	menu.AddItem("5", "Robot Engineer");
-	menu.AddItem("6", "Skeleton");
-	menu.AddItem("7", "Zombie Heavy");
-	menu.AddItem("8", "Merasmus");
-	menu.AddItem("9", "Skeleton King");
+	menu.AddItem("3", "Robot Engineer");
+	menu.AddItem("4", "Merasmus");
+	menu.AddItem("5", "Skeleton King");
+	menu.AddItem("6", "Mini-Me");
 	menu.Display(client, MENU_TIME_FOREVER);
 	
 	return Plugin_Handled;
@@ -2124,57 +2107,25 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 			}
 			case 3:
 			{
-				switch(GetRandomInt(1, 2))
-				{
-					case 1:	
-					{
-						PetGhost npc = new PetGhost(param1, flPos, flAng, "models/props_halloween/ghost.mdl"); 
-						npc.Update();
-					}
-					case 2: 
-					{
-						PetGhost npc = new PetGhost(param1, flPos, flAng, GetClientTeam(param1) == 3 ? "models/props_halloween/ghost_no_hat_red.mdl" : "models/props_halloween/ghost_no_hat.mdl"); 
-						npc.Update();
-					}
-				}
-			}
-			case 4:
-			{
-				PetHeavy npc = new PetHeavy(param1, flPos, flAng, "models/bots/heavy/bot_heavy.mdl");
-				npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_minigun.mdl", _, 8);
-			}
-			case 5:
-			{
 				PetEngineer npc = new PetEngineer(param1, flPos, flAng);
 				npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_wrench.mdl", _, GetClientTeam(param1) - 2);
 				SetVariantString("1.0");
 				AcceptEntityInput(npc.Weapon, "SetModelScale");
 			}
-			case 6:
-			{
-				PetSkeleton npc = new PetSkeleton(param1, flPos, flAng);
-				npc.Update();
-			}
-			case 7:
-			{
-				//Code reusability, hurray!
-				PetHeavy npc = new PetHeavy(param1, flPos, flAng, "models/player/heavy.mdl");
-				npc.EquipItem("head", "models/player/items/heavy/heavy_zombie.mdl", _, GetClientTeam(param1) - 2);
-				SetEntProp(npc.index, Prop_Send, "m_nSkin", GetClientTeam(param1) + 2);
-				
-				Dynamic brain = npc.GetBrainInterface();
-				brain.SetString("MoveAnim", "Run_MELEE", 64);
-				brain.SetString("IdleAnim", "Stand_MELEE", 64);
-			}
-			case 8:
+			case 4:
 			{
 				PetMerasmus npc = new PetMerasmus(param1, flPos, flAng);
 				npc.Update();
 			}
-			case 9:
+			case 5:
 			{
 				PetSkeletonKing npc = new PetSkeletonKing(param1, flPos, flAng);
 				npc.EquipItem("head", s_skeletonHatModels[GetRandomInt(0, sizeof(s_skeletonHatModels) - 1)], _, GetClientTeam(param1) - 2, 0.9999);
+				npc.Update();
+			}
+			case 6:
+			{
+				PetMiniMe npc = new PetMiniMe(param1, flPos, flAng);
 				npc.Update();
 			}
 		}
