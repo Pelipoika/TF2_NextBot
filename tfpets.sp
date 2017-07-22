@@ -560,7 +560,7 @@ methodmap PetMedic < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("run_SECONDARY");
 		pet.Pathing = true;
 		
@@ -594,7 +594,6 @@ methodmap PetMedic < BaseNPC
 			}
 		}
 	}
-	
 	property bool Healing
 	{
 		public get()			
@@ -618,7 +617,6 @@ methodmap PetMedic < BaseNPC
 			}
 		}
 	}
-	
 	property float NextHealTime
 	{
 		public get()			
@@ -655,8 +653,7 @@ methodmap PetMedic < BaseNPC
 			
 			EmitSoundToAll(")weapons/medigun_heal.wav", this.index, SNDCHAN_WEAPON);
 		}
-	}
-	
+	}	
 	public void StopHealing()
 	{
 		int iBeam = this.BeamEntity;
@@ -696,7 +693,7 @@ methodmap PetTank < BaseNPC
 		brain.SetInt("Bomb", INVALID_ENT_REFERENCE);
 		brain.SetBool("Deploying", false);
 		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("movement");
 		pet.Pathing = true;
 		
@@ -734,7 +731,6 @@ methodmap PetTank < BaseNPC
 			}
 		}
 	}
-	
 	property int RightTrack
 	{
 		public get()			
@@ -758,7 +754,6 @@ methodmap PetTank < BaseNPC
 			}
 		}
 	}
-	
 	property int Bomb
 	{
 		public get()			
@@ -782,7 +777,6 @@ methodmap PetTank < BaseNPC
 			}
 		}
 	}
-	
 	property bool Deploying
 	{
 		public get()			
@@ -831,7 +825,7 @@ methodmap PetEngineer < BaseNPC
 		brain.SetInt("AmmoRef", INVALID_ENT_REFERENCE);
 		brain.SetFloat("NextAmmoCheckTime", GetGameTime() + 5.0);
 		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("Stand_PRIMARY");
 		pet.Pathing = true;
 		
@@ -868,7 +862,6 @@ methodmap PetEngineer < BaseNPC
 			}
 		}
 	}
-	
 	property bool IsGettingAmmo
 	{
 		public get()
@@ -890,7 +883,6 @@ methodmap PetEngineer < BaseNPC
 			}
 		}
 	}
-	
 	property bool IsCarryingAmmo
 	{
 		public get()
@@ -912,7 +904,6 @@ methodmap PetEngineer < BaseNPC
 			}
 		}
 	}
-	
 	property float NextAmmoCheckTime
 	{
 		public get()			
@@ -978,7 +969,7 @@ methodmap PetMerasmus < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.SetAnimation("run_MELEE");
 		pet.Pathing = true;
 		
@@ -1007,7 +998,7 @@ methodmap PetSkeletonKing < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.Pathing = true;
 		
 		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
@@ -1040,7 +1031,7 @@ methodmap PetMiniMe < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
 		pet.Pathing = true;
 		
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
@@ -1052,7 +1043,9 @@ methodmap PetMiniMe < BaseNPC
 			if(!GetEntProp(iWearable, Prop_Send, "m_bDisguiseWearable") && GetEntPropEnt(iWearable, Prop_Send, "m_hOwnerEntity") == client)
 			{
 				GetEntPropString(iWearable, Prop_Data, "m_ModelName", strModel, PLATFORM_MAX_PATH);
-				pet.EquipItem("head", strModel, _, GetClientTeam(client) - 2);
+				int iItem = pet.EquipItem("head", strModel, _, GetClientTeam(client) - 2);
+				SetVariantString("1.0");
+				AcceptEntityInput(iItem, "SetModelScale");
 			}
 		}
 		
