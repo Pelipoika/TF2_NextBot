@@ -305,10 +305,30 @@
 				"windows"	"48"
 				"linux"		"49"
 			}
+			"IVision::AddKnownEntity"//(CBaseEntity*)
+			{
+				"windows"	"54"
+				"linux"		"55"
+			}
+			"IVision::GetKnown"//(CBaseEntity const*)
+			{
+				"windows"	"53"
+				"linux"		"54"
+			}
 			"CKnownEntity::GetEntity"
 			{
 				"windows"	"3"
 				"linux"		"4"
+			}
+			"CKnownEntity::UpdatePosition"
+			{
+				"windows"	"2"
+				"linux"		"3"
+			}
+			"CKnownEntity::UpdateVisibilityStatus"
+			{
+				"windows"	"10"
+				"linux"		"11"
 			}
 			"IBody::GetSolidMask"
 			{

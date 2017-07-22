@@ -2549,7 +2549,7 @@ public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float di
 		float additionalHeight = 0.0;
 		if ( height < 32 )
 		{
-			additionalHeight = 8.0;
+			additionalHeight = 16.0;
 		}
 		
 		height += additionalHeight;
