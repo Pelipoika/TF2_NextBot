@@ -2477,7 +2477,7 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 
 public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
 {
-//	PrintToServer("area_id %i from_area_id %i length %f", area_id, from_area_id, length);
+//	PrintToServer("area %i from_area %i length %f", area.GetID(), from_area.GetID(), length);
 
 	float dist;
 	if (length != 0.0) 
@@ -2498,12 +2498,10 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	
 	float multiplier = 1.0;
 	
-	/* very similar to CTFBot::TransientlyConsistentRandomValue */
 	int seed = RoundToFloor(GetGameTime() * 0.1) + 1;
 	seed *= area.GetID();
 	seed *= bot_entidx;
 	
-	/* huge random cost modifier [0, 100] for non-giant bots! */
 	multiplier += (Cosine(float(seed)) + 1.0) * 5.0;
 	
 	float cost = dist * multiplier;

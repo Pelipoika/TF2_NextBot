@@ -83,6 +83,14 @@ public void OnMapStart()
 	PrecacheScriptSound("MVM.SentryBusterStep");
 }
 
+public void OnEntityDestroyed(int entity)
+{
+	if(entity > MaxClients && entity <= 2048)
+	{
+		StopSound(entity, SNDCHAN_STATIC, "mvm/sentrybuster/mvm_sentrybuster_loop.wav");
+	}
+}
+
 public Action test(int client, int args)
 {
 	int iTarget = GetClientAimTarget(client, false);	
