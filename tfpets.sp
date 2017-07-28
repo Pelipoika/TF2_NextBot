@@ -112,7 +112,7 @@ public Plugin myinfo =
 	url = ""
 };
 
-methodmap BaseNPC __nullable__
+methodmap BaseNPC
 {
 	public BaseNPC(float vecPos[3], float vecAng[3], const char[] model, const char[] modelscale = "1.0", const char[] health = "100", bool bGroundNormal = true)
 	{
@@ -543,7 +543,7 @@ methodmap PetMedic < BaseNPC
 {
 	public PetMedic(int client, float vecPos[3], float vecAng[3], const char[] model)
 	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.5");
+		BaseNPC pet = BaseNPC(vecPos, vecAng, model, "0.5");
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
@@ -682,7 +682,7 @@ methodmap PetTank < BaseNPC
 {
 	public PetTank(int client, float vecPos[3], float vecAng[3], const char[] model)
 	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "0.15", _, false);
+		BaseNPC pet = BaseNPC(vecPos, vecAng, model, "0.15", _, false);
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",         GetRandomInt(0, 1));
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
@@ -806,7 +806,7 @@ methodmap PetEngineer < BaseNPC
 {
 	public PetEngineer(int client, float vecPos[3], float vecAng[3])
 	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/engineer/bot_engineer.mdl", "0.5");
+		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/bots/engineer/bot_engineer.mdl", "0.5");
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
@@ -955,7 +955,7 @@ methodmap PetMerasmus < BaseNPC
 {
 	public PetMerasmus(int client, float vecPos[3], float vecAng[3])
 	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/merasmus/merasmus.mdl", "0.25");
+		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/bots/merasmus/merasmus.mdl", "0.25");
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetRandomInt(1, 2));
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
@@ -985,7 +985,7 @@ methodmap PetSkeletonKing < BaseNPC
 {
 	public PetSkeletonKing(int client, float vecPos[3], float vecAng[3])
 	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, "models/bots/skeleton_sniper_boss/skeleton_sniper_boss.mdl", "0.65");
+		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/bots/skeleton_sniper_boss/skeleton_sniper_boss.mdl", "0.65");
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetRandomInt(0, 3));
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
@@ -1016,7 +1016,7 @@ methodmap PetMiniMe < BaseNPC
 		char strModel[PLATFORM_MAX_PATH];
 		GetEntPropString(client, Prop_Data, "m_ModelName", strModel, PLATFORM_MAX_PATH);
 		
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, strModel, "0.5");
+		BaseNPC pet = BaseNPC(vecPos, vecAng, strModel, "0.5");
 		
 //		SetEntProp(pet.index, Prop_Data, "m_nBody", 2);
 		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
@@ -2072,7 +2072,7 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 						char strModel[PLATFORM_MAX_PATH];
 						Format(strModel, sizeof(strModel), "models/bots/tw2/boss_bot/boss_tank%s.mdl", bDamaged ? strDamage : "");
 					
-						PetTank npc = new PetTank(param1, flPos, flAng, strModel);
+						PetTank npc = PetTank(param1, flPos, flAng, strModel);
 						
 						npc.LeftTrack  = npc.EquipItem("smoke_attachment", "models/bots/tw2/boss_bot/tank_track_l.mdl", "forward");
 						npc.RightTrack = npc.EquipItem("smoke_attachment", "models/bots/tw2/boss_bot/tank_track_r.mdl", "forward");
@@ -2080,7 +2080,7 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 					}
 					case 2:
 					{
-						PetTank npc = new PetTank(param1, flPos, flAng, "models/bots/boss_bot/boss_tank.mdl");
+						PetTank npc = PetTank(param1, flPos, flAng, "models/bots/boss_bot/boss_tank.mdl");
 						
 						npc.LeftTrack  = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/tank_track_l.mdl", "forward");
 						npc.RightTrack = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/tank_track_r.mdl", "forward");
@@ -2090,7 +2090,7 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 			}
 			case 2:
 			{
-				PetMedic npc = new PetMedic(param1, flPos, flAng, "models/player/medic.mdl");
+				PetMedic npc = PetMedic(param1, flPos, flAng, "models/player/medic.mdl");
 				
 				npc.Weapon = npc.EquipItem("head", "models/weapons/c_models/c_medigun/c_medigun.mdl", _, 8);
 				npc.EquipItem("head", "models/workshop/player/items/all_class/short2014_lil_moe/short2014_lil_moe_medic.mdl", _, GetClientTeam(param1) - 2);
@@ -2100,25 +2100,25 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 			}
 			case 3:
 			{
-				PetEngineer npc = new PetEngineer(param1, flPos, flAng);
+				PetEngineer npc = PetEngineer(param1, flPos, flAng);
 				npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_wrench.mdl", _, GetClientTeam(param1) - 2);
 				SetVariantString("1.0");
 				AcceptEntityInput(npc.Weapon, "SetModelScale");
 			}
 			case 4:
 			{
-				PetMerasmus npc = new PetMerasmus(param1, flPos, flAng);
+				PetMerasmus npc = PetMerasmus(param1, flPos, flAng);
 				npc.Update();
 			}
 			case 5:
 			{
-				PetSkeletonKing npc = new PetSkeletonKing(param1, flPos, flAng);
+				PetSkeletonKing npc = PetSkeletonKing(param1, flPos, flAng);
 				npc.EquipItem("head", s_skeletonHatModels[GetRandomInt(0, sizeof(s_skeletonHatModels) - 1)], _, GetClientTeam(param1) - 2, 0.9999);
 				npc.Update();
 			}
 			case 6:
 			{
-				PetMiniMe npc = new PetMiniMe(param1, flPos, flAng);
+				PetMiniMe npc = PetMiniMe(param1, flPos, flAng);
 				npc.Update();
 			}
 		}
