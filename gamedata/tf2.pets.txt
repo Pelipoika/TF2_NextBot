@@ -78,16 +78,32 @@
 		}
 		"Offsets"
 		{
-			"CTFPlayer::GetAmmoCount" //(int)
-			{		
-				"windows"	"257"		
-				"linux"		"258"
-			}
-			
 			"m_bResolveCollisions"	//2492
 			{
 				"windows"	"28"
 				"linux"		"24"
+			}
+			
+			"CTFPlayer::GetAmmoCount" //(int)
+			{		
+				"windows"	"257"		
+				"linux"		"258"
+			}	
+			
+			"CTFWeaponBaseGun::GetWeaponID" //(int)
+			{		
+				"windows"	"372"		
+				"linux"		"378"
+			}
+			"CTFWeaponBaseGun::GetProjectileSpeed" //(float)
+			{		
+				"windows"	"462"		
+				"linux"		"469"
+			}
+			"CTFWeaponBaseGun::GetProjectileGravity" //(float)
+			{		
+				"windows"	"463"		
+				"linux"		"470"
 			}
 			
 			"CTFBaseBoss::GetCurrencyValue"
