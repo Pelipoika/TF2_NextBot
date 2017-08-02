@@ -7,7 +7,18 @@
 #pragma newdecls required
 
 #define MODEL_NPC "models/delorean_drivable.mdl"
-//#define MODEL_NPC "models/bots/skeleton_sniper/skeleton_sniper.mdl"
+
+enum ParticleAttachment
+{
+	PATTACH_ABSORIGIN = 0,			// Create at absorigin, but don't follow
+	PATTACH_ABSORIGIN_FOLLOW,		// Create at absorigin, and update to follow the entity
+	PATTACH_CUSTOMORIGIN,			// Create at a custom origin, but don't follow
+	PATTACH_POINT,					// Create on attachment point, but don't follow
+	PATTACH_POINT_FOLLOW,			// Create on attachment point, and update to follow the entity
+	PATTACH_WORLDORIGIN,			// Used for control points that don't attach to an entity
+	PATTACH_ROOTBONE_FOLLOW,		// Create at the root bone of the entity, and update to follow
+	MAX_PATTACH_TYPES,
+};
 
 #define EF_BONEMERGE                (1 << 0)
 #define EF_PARENT_ANIMATES          (1 << 9)
@@ -25,6 +36,8 @@ Handle g_hGetGravity;
 Handle g_hGetSolidMask;
 Handle g_hStudioFrameAdvance;
 Handle g_hGetVectors;
+
+Handle g_hDispatchParticleEffect;
 
 Handle g_hLookupPoseParameter;
 Handle g_hSetPoseParameter;
@@ -53,6 +66,16 @@ public void OnPluginStart()
 	RegAdminCmd("sm_npctest", test, ADMFLAG_ROOT);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
+	
+	//DispatchParticleEffect(const char *pszParticleName, ParticleAttachment_t iAttachType, CBaseEntity *pEntity, const char *pszAttachmentName, bool bResetAllParticlesOnEntity)
+	StartPrepSDKCall(SDKCall_Static);
+	PrepSDKCall_SetSignature(SDKLibrary_Server, "\x55\x8B\xEC\x56\x8B\x75\x10\x57\x83\xCF\xFF", 11);
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);		//pszParticleName
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);	//iAttachType
+	PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);	//pEntity
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);		//pszAttachmentName
+	PrepSDKCall_AddParameter(SDKType_Bool, SDKPass_Plain);			//bResetAllParticlesOnEntity 
+	if ((g_hDispatchParticleEffect = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for DispatchParticleEffect signature!");
 	
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseAnimating::StudioFrameAdvance");
@@ -169,31 +192,17 @@ public void OnPluginStart()
 	delete hConf;
 }
 
-public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, (MASK_NPCSOLID|MASK_PLAYERSOLID)); return MRES_Supercede; }
-public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)     { DHookSetReturnVector(hReturn,    view_as<float>( { 0.0, 0.0, 1.0 } ));  return MRES_Supercede; }
-public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 18.0);	return MRES_Supercede; }
-public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 100.0);  return MRES_Supercede; }
-public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
-public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 800.0);  return MRES_Supercede; }
-
-Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType returntype, ThisPointerType thistype, DHookCallback callback)
-{
-	int iOffset = GameConfGetOffset(gc, key);
-	if(iOffset == -1)
-	{
-		SetFailState("Failed to get offset of %s", key);
-		return null;
-	}
-	
-	return DHookCreate(iOffset, hooktype, returntype, thistype, callback);
-}
-
 public void OnMapStart()
 {
 	PrecacheModel(MODEL_NPC);
 	
-	PrecacheSound("sound/dejavu.mp3");
 	PrecacheSound("dejavu.mp3");
+	
+	PrecacheSound("vehicles/v8/skid_highfriction.wav");
+	PrecacheSound("vehicles/delorean/v8_turbo_on_loop1.wav");
+	PrecacheSound("vehicles/v8/v8_turbo_on_loop1.wav");
+	
+	PrecacheSound("vehicles/v8/vehicle_impact_heavy1.wav");
 }
 
 public Action test(int client, int args)
@@ -219,9 +228,13 @@ public Action test(int client, int args)
 	//Don't bleed.
 	SetEntProp(npc, Prop_Data, "m_bloodColor", -1); 
 	
-	SetEntPropFloat(npc, Prop_Data, "m_speed", 1000.0);
+	//Speedster
+	SetEntPropFloat(npc, Prop_Data, "m_speed", 800.0);
+	
+	//I won'd touch you.
 	SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
 	
+	//Don't touch me.
 	SetEntProp(npc, Prop_Data, "m_nSolidType", 0); 
 
 	SetEntPropVector(npc, Prop_Send, "m_vecMaxs", view_as<float>( { 32.0, 32.0, 16.0 } ));
@@ -253,8 +266,21 @@ public Action test(int client, int args)
 	
 	EmitSoundToAll("dejavu.mp3", npc);
 	EmitSoundToAll("dejavu.mp3", npc);
+	EmitSoundToAll("vehicles/v8/v8_turbo_on_loop1.wav", npc);
+	EmitSoundToAll("vehicles/v8/v8_turbo_on_loop1.wav", npc);
+	EmitSoundToAll("vehicles/v8/v8_turbo_on_loop1.wav", npc);
+	
+	DispatchParticleEffect("speed_boost_trail", PATTACH_ABSORIGIN_FOLLOW, npc, "vehicle_engine");
+	
+	DispatchParticleEffect("kart_dust_trail_red", PATTACH_POINT_FOLLOW, npc, "rearlight_right");
+	DispatchParticleEffect("kart_dust_trail_red", PATTACH_POINT_FOLLOW, npc, "rearlight_left");
 	
 	return Plugin_Handled;
+}
+
+void DispatchParticleEffect(const char[] pszParticleName, ParticleAttachment iAttachType, int pEntity, const char[] pszAttachmentName, bool bResetAllParticlesOnEntity = false)
+{
+	SDKCall(g_hDispatchParticleEffect, pszParticleName, iAttachType, pEntity, pszAttachmentName, bResetAllParticlesOnEntity);
 }
 
 public void DeloreanThink(int iEntity)
@@ -289,7 +315,9 @@ public void DeloreanThink(int iEntity)
 		float ang2 = vecMyForwardAngle[1];
 		float angDiff = FloatAbs(ang1 - ang2);
 		
-		if (angDiff > 30.0 && flGroundSpeed >= 80.0 && GetEntityFlags(iEntity) & FL_ONGROUND)
+		int m_nSkin = GetEntProp(iEntity, Prop_Send, "m_nSkin");
+		
+		if (angDiff > 30.0 && flGroundSpeed >= 120.0 && GetEntityFlags(iEntity) & FL_ONGROUND)
 		{
 			float origin[3], angles[3];
 			GetAttachment(iEntity, "wheel_rr", origin, angles);
@@ -298,15 +326,23 @@ public void DeloreanThink(int iEntity)
 			GetAttachment(iEntity, "wheel_rl", origin, angles);
 			CreateParticle("doublejump_puff", origin, angles);
 			
-			SetEntProp(iEntity, Prop_Send, "m_nSkin", 1);
+			if(m_nSkin != 1)
+			{
+				SetEntProp(iEntity, Prop_Send, "m_nSkin", 1);
+				EmitSoundToAll("vehicles/v8/skid_highfriction.wav", iEntity);
+				EmitSoundToAll("vehicles/v8/skid_highfriction.wav", iEntity);
+				EmitSoundToAll("vehicles/v8/skid_highfriction.wav", iEntity);
+			}
 		}
 		else
-			SetEntProp(iEntity, Prop_Send, "m_nSkin", 0);
+		{
+			if(m_nSkin != 0)
+			{
+				SetEntProp(iEntity, Prop_Send, "m_nSkin", 0);
+			}
+		}
 		
 		int m_iSteer = LookupPoseParameter(iEntity, "vehicle_steer");
-		
-		//PrintToServer("%i", m_iFucker);
-		
 		if ( m_iSteer < 0 )
 			return;
 		
@@ -321,146 +357,20 @@ public void DeloreanThink(int iEntity)
 		SDKCall(g_hGetVectors, iEntity, vecForward, vecRight, vecUp);
 		
 		float flDot = GetVectorDotProduct(vecForward, vecToGoal) * 2;
-	//	PrintCenterText(1, "  vecMovementAngle %f\n- vecMyForwardAngle %f\n = %f\nGroundspeed %f\nflDot %f", ang1, ang2, angDiff, flGroundSpeed, flDot);
-		
 		SetPoseParameter(iEntity, m_iSteer, flDot);
+	//	PrintCenterText(1, "  vecMovementAngle %f\n- vecMyForwardAngle %f\n = %f\nGroundspeed %f\nflDot %f", ang1, ang2, angDiff, flGroundSpeed, flDot);
 		
 		int m_iWheel_rl_spin = LookupPoseParameter(iEntity, "vehicle_wheel_rl_spin");
 		int m_iWheel_rr_spin = LookupPoseParameter(iEntity, "vehicle_wheel_rr_spin");
 		int m_iWheel_fl_spin = LookupPoseParameter(iEntity, "vehicle_wheel_fl_spin");
 		int m_iWheel_fr_spin = LookupPoseParameter(iEntity, "vehicle_wheel_fr_spin");
 		
-		float flSpinRate = 15.0;
+		float flSpinRate = 20.0;
 		SetPoseParameter(iEntity, m_iWheel_rl_spin, GetPoseParameter(iEntity, m_iWheel_rl_spin) + flSpinRate);
 		SetPoseParameter(iEntity, m_iWheel_rr_spin, GetPoseParameter(iEntity, m_iWheel_rr_spin) + flSpinRate);
 		SetPoseParameter(iEntity, m_iWheel_fl_spin, GetPoseParameter(iEntity, m_iWheel_fl_spin) + flSpinRate);
 		SetPoseParameter(iEntity, m_iWheel_fr_spin, GetPoseParameter(iEntity, m_iWheel_fr_spin) + flSpinRate);
 	}
-}
-
-public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
-{
-	float dist;
-	if (length != 0.0) 
-	{
-		dist = length;
-	}
-	else 
-	{
-		float vecCenter[3], vecFromCenter[3];
-		area.GetCenter(vecCenter);
-		from_area.GetCenter(vecFromCenter);
-		
-		float vecSubtracted[3]
-		SubtractVectors(vecCenter, vecFromCenter, vecSubtracted)
-		
-		dist = GetVectorLength(vecSubtracted);
-	}
-	
-	float multiplier = 50.0;
-	
-	float cost = dist * multiplier;
-	
-	return from_area.GetCostSoFar() + cost;
-}
-
-public int FindAttachment(int iEntity, const char[] pAttachmentName)
-{
-	Address pStudioHdr = view_as<Address>(GetEntData(iEntity, 283 * 4));
-	if(pStudioHdr == Address_Null)
-		return -1;
-		
-	return SDKCall(g_hStudio_FindAttachment, pStudioHdr, pAttachmentName) + 1;
-}
-
-public void GetAttachment(int iEntity, const char[] szName, float absOrigin[3], float absAngles[3])
-{
-	SDKCall(g_hGetAttachment, iEntity, FindAttachment(iEntity, szName), absOrigin, absAngles);
-}
-
-public float GetPoseParameter(int iEntity, int iParameter)
-{
-	return SDKCall(g_hGetPoseParameter, iEntity, iParameter);
-}
-
-public void SetPoseParameter(int iEntity, int iParameter, float value)
-{
-	Address pStudioHdr = view_as<Address>(GetEntData(iEntity, 283 * 4));
-	if(pStudioHdr == Address_Null)
-		return;
-		
-	SDKCall(g_hSetPoseParameter, iEntity, pStudioHdr, iParameter, value);
-}
-
-public int LookupPoseParameter(int iEntity, const char[] szName)
-{
-	Address pStudioHdr = view_as<Address>(GetEntData(iEntity, 283 * 4));
-	if(pStudioHdr == Address_Null)
-		return -1;
-		
-	return SDKCall(g_hLookupPoseParameter, iEntity, pStudioHdr, szName);
-}	
-
-stock void CreateParticle(char[] particle, float pos[3], float ang[3])
-{
-	int tblidx = FindStringTable("ParticleEffectNames");
-	char tmp[256];
-	int count = GetStringTableNumStrings(tblidx);
-	int stridx = INVALID_STRING_INDEX;
-	
-	for(int i = 0; i < count; i++)
-    {
-        ReadStringTable(tblidx, i, tmp, sizeof(tmp));
-        if(StrEqual(tmp, particle, false))
-        {
-            stridx = i;
-            break;
-        }
-    }
-    
-	TE_Start("TFParticleEffect");
-	TE_WriteFloat("m_vecOrigin[0]", pos[0]);
-	TE_WriteFloat("m_vecOrigin[1]", pos[1]);
-	TE_WriteFloat("m_vecOrigin[2]", pos[2]);
-	TE_WriteVector("m_vecAngles", ang);
-	TE_WriteNum("m_iParticleSystemIndex", stridx);
-	TE_WriteNum("entindex", -1);
-	TE_WriteNum("m_iAttachType", 5);	//Dont associate with any entity
-	TE_SendToAll();
-}
-
-stock float AngleNormalizePositive( float angle )
-{
-	angle = fmodf(angle, 360.0);
-	if (angle < 0.0)
-	{
-		angle += 360.0;
-	}
-	return angle;
-}
-
-stock float AngleNormalize( float angle )
-{
-	angle = fmodf(angle, 360.0);
-	if (angle > 180) 
-	{
-		angle -= 360;
-	}
-	if (angle < -180)
-	{
-		angle += 360;
-	}
-	return angle;
-}
-
-stock float fmodf(float num, float denom)
-{
-	return num - denom * RoundToFloor(num / denom);
-}
-
-stock float operator%(float oper1, float oper2)
-{
-	return fmodf(oper1, oper2);
 }
 
 public void PluginBot_Approach(int bot_entidx, const float vec[3])
@@ -523,6 +433,138 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 	flTurnRate.FloatValue = flPrevValue;
 }
 
+public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
+{
+	float dist;
+	if (length != 0.0) 
+	{
+		dist = length;
+	}
+	else 
+	{
+		float vecCenter[3], vecFromCenter[3];
+		area.GetCenter(vecCenter);
+		from_area.GetCenter(vecFromCenter);
+		
+		float vecSubtracted[3]
+		SubtractVectors(vecCenter, vecFromCenter, vecSubtracted)
+		
+		dist = GetVectorLength(vecSubtracted);
+	}
+	
+	float multiplier = 50.0;
+	
+	float cost = dist * multiplier;
+	
+	return from_area.GetCostSoFar() + cost;
+}
+
+public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, (MASK_NPCSOLID|MASK_PLAYERSOLID)); return MRES_Supercede; }
+public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)     { DHookSetReturnVector(hReturn,    view_as<float>( { 0.0, 0.0, 1.0 } ));  return MRES_Supercede; }
+public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 18.0);	return MRES_Supercede; }
+public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 100.0);  return MRES_Supercede; }
+public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
+public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 800.0);  return MRES_Supercede; }
+
+public int FindAttachment(int iEntity, const char[] pAttachmentName)
+{
+	Address pStudioHdr = view_as<Address>(GetEntData(iEntity, 283 * 4));
+	if(pStudioHdr == Address_Null)
+		return -1;
+		
+	return SDKCall(g_hStudio_FindAttachment, pStudioHdr, pAttachmentName) + 1;
+}
+
+public void GetAttachment(int iEntity, const char[] szName, float absOrigin[3], float absAngles[3])
+{
+	SDKCall(g_hGetAttachment, iEntity, FindAttachment(iEntity, szName), absOrigin, absAngles);
+}
+
+public float GetPoseParameter(int iEntity, int iParameter)
+{
+	return SDKCall(g_hGetPoseParameter, iEntity, iParameter);
+}
+
+public void SetPoseParameter(int iEntity, int iParameter, float value)
+{
+	Address pStudioHdr = view_as<Address>(GetEntData(iEntity, 283 * 4));
+	if(pStudioHdr == Address_Null)
+		return;
+		
+	SDKCall(g_hSetPoseParameter, iEntity, pStudioHdr, iParameter, value);
+}
+
+public int LookupPoseParameter(int iEntity, const char[] szName)
+{
+	Address pStudioHdr = view_as<Address>(GetEntData(iEntity, 283 * 4));
+	if(pStudioHdr == Address_Null)
+		return -1;
+		
+	return SDKCall(g_hLookupPoseParameter, iEntity, pStudioHdr, szName);
+}	
+
+stock void CreateParticle(char[] particle, float pos[3], float ang[3], int iEntityIndex = -1, int iAttachType = 5)
+{
+	int tblidx = FindStringTable("ParticleEffectNames");
+	char tmp[256];
+	int count = GetStringTableNumStrings(tblidx);
+	int stridx = INVALID_STRING_INDEX;
+	
+	for(int i = 0; i < count; i++)
+    {
+        ReadStringTable(tblidx, i, tmp, sizeof(tmp));
+        if(StrEqual(tmp, particle, false))
+        {
+            stridx = i;
+            break;
+        }
+    }
+    
+	TE_Start("TFParticleEffect");
+	TE_WriteFloat("m_vecOrigin[0]", pos[0]);
+	TE_WriteFloat("m_vecOrigin[1]", pos[1]);
+	TE_WriteFloat("m_vecOrigin[2]", pos[2]);
+	TE_WriteVector("m_vecAngles", ang);
+	TE_WriteNum("m_iParticleSystemIndex", stridx);
+	TE_WriteNum("entindex", iEntityIndex);
+	TE_WriteNum("m_iAttachType", iAttachType);
+	TE_SendToAll();
+}
+
+stock float AngleNormalizePositive( float angle )
+{
+	angle = fmodf(angle, 360.0);
+	if (angle < 0.0)
+	{
+		angle += 360.0;
+	}
+	return angle;
+}
+
+stock float AngleNormalize( float angle )
+{
+	angle = fmodf(angle, 360.0);
+	if (angle > 180) 
+	{
+		angle -= 360;
+	}
+	if (angle < -180)
+	{
+		angle += 360;
+	}
+	return angle;
+}
+
+stock float fmodf(float num, float denom)
+{
+	return num - denom * RoundToFloor(num / denom);
+}
+
+stock float operator%(float oper1, float oper2)
+{
+	return fmodf(oper1, oper2);
+}
+
 public float clamp(float a, float b, float c)
 {
 	return (a > c ? c : (a < b ? b : a));
@@ -540,6 +582,17 @@ public Address GetBodyInterface(int index)
 	return SDKCall(g_hGetBodyInterface, pNB);
 }
 
+Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType returntype, ThisPointerType thistype, DHookCallback callback)
+{
+	int iOffset = GameConfGetOffset(gc, key);
+	if(iOffset == -1)
+	{
+		SetFailState("Failed to get offset of %s", key);
+		return null;
+	}
+	
+	return DHookCreate(iOffset, hooktype, returntype, thistype, callback);
+}
 
 stock bool GetAimPos(int client, float vecPos[3])
 {
