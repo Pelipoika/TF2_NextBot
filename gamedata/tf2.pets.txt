@@ -12,6 +12,29 @@
 					"signature"	"GetAnimationEvent_"
 				}
 			}
+			
+			"MannVsMachineUpgrades"
+			{
+				"windows"
+				{
+					"signature" "CTFGameRules::SetCustomUpgradesFile"
+					"read" "42"
+				}
+			}
+			
+			"GameRules"
+            {
+                "windows"
+                {
+                    "signature" "CreateGameRulesObject"                
+                    "read" "5"                    
+                }
+                "linux"
+                {
+                    "signature" "g_pGameRules"
+                }
+                "read" "0"
+            }
 		}
 		"Signatures"
 		{
@@ -75,6 +98,67 @@
 				"windows"	"\x55\x8B\xEC\x56\x6A\x00\xFF\x75\x08\x8B\xF1\xE8\x2A\x2A\x2A\x2A\x85\xC0\x78\x2A"
 				"linux"		"@_ZN21CBaseAnimatingOverlay18AddGestureSequenceEib"
 			}
+			"CBaseEntity::GetNextThink" //( const char *szContext ) <- "group_respawn_context"
+			{
+				"windows"	"\x55\x8B\xEC\x8B\x45\x08\x56\x8B\xF1\x85\xC0\x75\x2A\x8B\x86\xD0\x00\x00\x00\x89\x45\x08"
+				"linux"		"@_ZN11CBaseEntity12GetNextThinkEPKc"
+			}
+			"GetItemSchema" //()
+			{
+				"windows"	"\xE8\x2A\x2A\x2A\x2A\x83\xC0\x04\xC3"
+				"linux"		"@_Z15GEconItemSchemav"
+			}
+			"CEconItemSchema::GetAttributeDefinitionByName"	//const char*, returns CEconItemAttributeDefinition
+			{
+				"windows"	"\x55\x8B\xEC\x83\xEC\x18\x83\x7D\x08\x00\x53\x56\x57\x8B\xD9\x75\x2A\x33\xC0\x5F"
+				"linux"		"@_ZN15CEconItemSchema28GetAttributeDefinitionByNameEPKc"
+			}
+			
+			//CTFGameRules
+			"CTFGameRules::CanUpgradeWithAttrib" //CTFPlayer *, int, ushort, CMannVsMachineUpgrades *
+			{
+				"windows"	"\x55\x8B\xEC\x83\xEC\x10\x53\x8B\x5D\x08\x85\xDB\x75\x2A"
+				"linux"		"@_ZN12CTFGameRules20CanUpgradeWithAttribEP9CTFPlayeritP22CMannVsMachineUpgrades"
+			}
+			"CTFGameRules::GetCostForUpgrade" //(CMannVsMachineUpgrades *upgrade, int slot, int pclass, CTFPlayer *player) 
+			{
+				"windows"	"\x55\x8B\xEC\x57\x8B\x7D\x08\x85\xFF\x75\x2A\x33\xC0\x5F\x5D\xC2\x10\x00"
+				"linux"		"@_ZN12CTFGameRules17GetCostForUpgradeEP22CMannVsMachineUpgradesiiP9CTFPlayer"
+			}
+			"CTFGameRules::GetUpgradeTier" //int
+			{
+				"windows"	"\x55\x8B\xEC\x80\xB9\x66\x09\x00\x00\x00\x74\x2A\x8B\x45\x08"
+				"linux"		"@_ZN12CTFGameRules14GetUpgradeTierEi"
+			}
+			"CTFGameRules::IsUpgradeTierEnabled" //CTFPlayer *, int, int)
+			{
+				"windows"	"\x55\x8B\xEC\x81\xEC\xB4\x01\x00\x00\x83\x7D\x08\x00"
+				"linux"		"@_ZN12CTFGameRules20IsUpgradeTierEnabledEP9CTFPlayerii"
+			}
+			
+			//Get g_MannVsMachineUpgrades pointer
+			"CTFGameRules::SetCustomUpgradesFile"	//<- "upgrades_file_changed"
+			{
+				"library"	"server"
+				"windows"	"\x55\x8B\xEC\x56\x57\x8B\xF9\x8B\x4D\x08\x83\xC1\x08\x83\x79\x10\x02\x75\x2A\x8B\x01\xBE\x2A\x2A\x2A\x2A\x85\xC0\x0F\x45\xF0\xEB\x2A\xE8\x2A\x2A\x2A\x2A\x8B\xF0\x56"
+			}
+			"g_MannVsMachineUpgrades"	// g_MannVsMachineUpgrades
+			{
+				"library"	"server"
+				"linux"		"@g_MannVsMachineUpgrades"
+			}
+			
+			//Get g_pGameRules pointer
+			"CreateGameRulesObject"	//<- "InitGameRules: g"
+            {
+                "library"    "server"
+                "windows"   "\x55\x8B\xEC\x8B\x0D\x2A\x2A\x2A\x2A\x85\xC9\x74\x2A\x8B\x01\x6A\x01"
+            }
+            "g_pGameRules"	//g_pGameRules
+            {
+                "library"    "server"
+                "linux"        "@g_pGameRules"
+            }
 		}
 		"Offsets"
 		{

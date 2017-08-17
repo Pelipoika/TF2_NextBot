@@ -2475,9 +2475,126 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 	npc.FaceTowards(vec);
 }
 
+// TODO: figure out if this belongs here or elsewhere
+enum /*TFNavAttributeType*/
+{
+	BLOCKED                     = (1 << 0),
+	
+	RED_SPAWN_ROOM              = (1 << 1),
+	BLUE_SPAWN_ROOM             = (1 << 2),
+	SPAWN_ROOM_EXIT             = (1 << 3),
+	
+	AMMO                        = (1 << 4),
+	HEALTH                      = (1 << 5),
+	
+	CONTROL_POINT               = (1 << 6),
+	
+	BLUE_SENTRY                 = (1 << 7),
+	RED_SENTRY                  = (1 << 8),
+	
+	/* bit  9: unused */
+	/* bit 10: unused */
+	
+	BLUE_SETUP_GATE             = (1 << 11),
+	RED_SETUP_GATE              = (1 << 12),
+	
+	BLOCKED_AFTER_POINT_CAPTURE = (1 << 13),
+	BLOCKED_UNTIL_POINT_CAPTURE = (1 << 14),
+	
+	BLUE_ONE_WAY_DOOR           = (1 << 15),
+	RED_ONE_WAY_DOOR            = (1 << 16),
+	
+	WITH_SECOND_POINT           = (1 << 17),
+	WITH_THIRD_POINT            = (1 << 18),
+	WITH_FOURTH_POINT           = (1 << 19),
+	WITH_FIFTH_POINT            = (1 << 20),
+	
+	SNIPER_SPOT                 = (1 << 21),
+	SENTRY_SPOT                 = (1 << 22),
+	
+	/* bit 23: unused */
+	/* bit 24: unused */
+	
+	NO_SPAWNING                 = (1 << 25),
+	RESCUE_CLOSET               = (1 << 26),
+	BOMB_DROP                   = (1 << 27),
+	DOOR_NEVER_BLOCKS           = (1 << 28),
+	DOOR_ALWAYS_BLOCKS          = (1 << 29),
+	UNBLOCKABLE                 = (1 << 30),
+	
+	/* bit 31: unused */
+};
+
 public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
 {
-//	PrintToServer("area %i from_area %i length %f", area.GetID(), from_area.GetID(), length);
+	//	PrintToServer("area %i (%x) from_area %i (%x) length %f", area.GetID(), area, from_area.GetID(), from_area, length);
+	//Make me https://github.com/sigsegv-mvm/mvm-reversed/blob/3c60e2448fa660ab513b2c455eec33f33cedeac5/server/tf/bot/tf_bot.cpp
+
+	int TFNavAreaAttribs = LoadFromAddress(view_as<Address>(area) + view_as<Address>(0x54), NumberType_Int32);
+	if(TFNavAreaAttribs != 0)
+	{
+		char strAttribs[PLATFORM_MAX_PATH];
+		if(TFNavAreaAttribs & NAV_MESH_CROUCH) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_CROUCH");
+		if(TFNavAreaAttribs & NAV_MESH_JUMP) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_JUMP");
+		if(TFNavAreaAttribs & NAV_MESH_PRECISE) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_PRECISE");
+		if(TFNavAreaAttribs & NAV_MESH_NO_JUMP) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_NO_JUMP");
+		if(TFNavAreaAttribs & NAV_MESH_STOP) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_STOP");
+		if(TFNavAreaAttribs & NAV_MESH_RUN) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_RUN");
+		if(TFNavAreaAttribs & NAV_MESH_WALK) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_WALK");
+		if(TFNavAreaAttribs & NAV_MESH_AVOID) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_AVOID");
+		if(TFNavAreaAttribs & NAV_MESH_TRANSIENT) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_TRANSIENT");
+		if(TFNavAreaAttribs & NAV_MESH_DONT_HIDE) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_DONT_HIDE");
+		if(TFNavAreaAttribs & NAV_MESH_STAND) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_STAND");
+		if(TFNavAreaAttribs & NAV_MESH_NO_HOSTAGES) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_NO_HOSTAGES");
+		if(TFNavAreaAttribs & NAV_MESH_STAIRS) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_STAIRS");
+		if(TFNavAreaAttribs & NAV_MESH_NO_MERGE) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_NO_MERGE");
+		if(TFNavAreaAttribs & NAV_MESH_OBSTACLE_TOP) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_OBSTACLE_TOP");
+		if(TFNavAreaAttribs & NAV_MESH_CLIFF) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_CLIFF");
+		if(TFNavAreaAttribs & NAV_MESH_FIRST_CUSTOM) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_FIRST_CUSTOM");
+		if(TFNavAreaAttribs & NAV_MESH_LAST_CUSTOM) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_LAST_CUSTOM");
+		if(TFNavAreaAttribs & NAV_MESH_FUNC_COST) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_FUNC_COST");
+		if(TFNavAreaAttribs & NAV_MESH_HAS_ELEVATOR) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_HAS_ELEVATOR");
+		if(TFNavAreaAttribs & NAV_MESH_NAV_BLOCKER) strcopy(strAttribs, PLATFORM_MAX_PATH, " NAV_MESH_NAV_BLOCKER");
+		
+		float center[3];
+		area.GetCenter(center);
+		PrintToServer("%s on #%i %f %f %f", strAttribs, area.GetID(), center[0], center[1], center[2]);
+	}
+	
+	int CTFNavAreaAttribs = LoadFromAddress(view_as<Address>(area) + view_as<Address>(0x1C0), NumberType_Int32);
+	if(CTFNavAreaAttribs != 0)
+	{
+		char strAttribs[PLATFORM_MAX_PATH];
+		if(CTFNavAreaAttribs & BLOCKED) strcopy(strAttribs, PLATFORM_MAX_PATH, " BLOCKED");
+		if(CTFNavAreaAttribs & RED_SPAWN_ROOM) strcopy(strAttribs, PLATFORM_MAX_PATH, " RED_SPAWN_ROOM");
+		if(CTFNavAreaAttribs & BLUE_SPAWN_ROOM) strcopy(strAttribs, PLATFORM_MAX_PATH, " BLUE_SPAWN_ROOM");
+		if(CTFNavAreaAttribs & SPAWN_ROOM_EXIT) strcopy(strAttribs, PLATFORM_MAX_PATH, " SPAWN_ROOM_EXIT");
+		if(CTFNavAreaAttribs & AMMO) strcopy(strAttribs, PLATFORM_MAX_PATH, " AMMO");
+		if(CTFNavAreaAttribs & HEALTH) strcopy(strAttribs, PLATFORM_MAX_PATH, " HEALTH");
+		if(CTFNavAreaAttribs & CONTROL_POINT) strcopy(strAttribs, PLATFORM_MAX_PATH, " CONTROL_POINT");
+		if(CTFNavAreaAttribs & BLUE_SENTRY) strcopy(strAttribs, PLATFORM_MAX_PATH, " BLUE_SENTRY");
+		if(CTFNavAreaAttribs & RED_SENTRY) strcopy(strAttribs, PLATFORM_MAX_PATH, " RED_SENTRY");
+		if(CTFNavAreaAttribs & BLUE_SETUP_GATE) strcopy(strAttribs, PLATFORM_MAX_PATH, " BLUE_SETUP_GATE");
+		if(CTFNavAreaAttribs & RED_SETUP_GATE) strcopy(strAttribs, PLATFORM_MAX_PATH, " RED_SETUP_GATE");
+		if(CTFNavAreaAttribs & BLOCKED_AFTER_POINT_CAPTURE) strcopy(strAttribs, PLATFORM_MAX_PATH, " BLOCKED_AFTER_POINT_CAPTURE");
+		if(CTFNavAreaAttribs & BLOCKED_UNTIL_POINT_CAPTURE) strcopy(strAttribs, PLATFORM_MAX_PATH, " BLOCKED_UNTIL_POINT_CAPTURE");
+		if(CTFNavAreaAttribs & BLUE_ONE_WAY_DOOR) strcopy(strAttribs, PLATFORM_MAX_PATH, " BLUE_ONE_WAY_DOOR");
+		if(CTFNavAreaAttribs & RED_ONE_WAY_DOOR) strcopy(strAttribs, PLATFORM_MAX_PATH, " RED_ONE_WAY_DOOR");
+		if(CTFNavAreaAttribs & WITH_SECOND_POINT) strcopy(strAttribs, PLATFORM_MAX_PATH, " WITH_SECOND_POINT");
+		if(CTFNavAreaAttribs & WITH_THIRD_POINT) strcopy(strAttribs, PLATFORM_MAX_PATH, " WITH_THIRD_POINT");
+		if(CTFNavAreaAttribs & WITH_FOURTH_POINT) strcopy(strAttribs, PLATFORM_MAX_PATH, " WITH_FOURTH_POINT");
+		if(CTFNavAreaAttribs & WITH_FIFTH_POINT) strcopy(strAttribs, PLATFORM_MAX_PATH, " WITH_FIFTH_POINT");
+		if(CTFNavAreaAttribs & SNIPER_SPOT) strcopy(strAttribs, PLATFORM_MAX_PATH, " SNIPER_SPOT");
+		if(CTFNavAreaAttribs & SENTRY_SPOT) strcopy(strAttribs, PLATFORM_MAX_PATH, " SENTRY_SPOT");
+		if(CTFNavAreaAttribs & NO_SPAWNING) strcopy(strAttribs, PLATFORM_MAX_PATH, " NO_SPAWNING");
+		if(CTFNavAreaAttribs & RESCUE_CLOSET) strcopy(strAttribs, PLATFORM_MAX_PATH, " RESCUE_CLOSET");
+		if(CTFNavAreaAttribs & BOMB_DROP) strcopy(strAttribs, PLATFORM_MAX_PATH, " BOMB_DROP");
+		if(CTFNavAreaAttribs & DOOR_NEVER_BLOCKS) strcopy(strAttribs, PLATFORM_MAX_PATH, " DOOR_NEVER_BLOCKS");
+		if(CTFNavAreaAttribs & DOOR_ALWAYS_BLOCKS) strcopy(strAttribs, PLATFORM_MAX_PATH, " DOOR_ALWAYS_BLOCKS");
+		if(CTFNavAreaAttribs & UNBLOCKABLE) strcopy(strAttribs, PLATFORM_MAX_PATH, " UNBLOCKABLE");
+		
+	//	PrintToServer("%s on #%i", strAttribs, area.GetID());
+	}
 
 	float dist;
 	if (length != 0.0) 
@@ -2507,6 +2624,11 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	float cost = dist * multiplier;
 	
 	return from_area.GetCostSoFar() + cost;
+}
+
+stock bool HasTFAttributes(NavArea area)
+{
+	
 }
 
 public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float dir[2])
