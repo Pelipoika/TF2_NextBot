@@ -2423,7 +2423,6 @@ public void OnEntityDestroyed(int entity)
 {
 	if(entity > MaxClients && entity <= 2048)
 	{
-		StopSound(entity, SNDCHAN_AUTO, ")mvm/mvm_tank_loop.wav");
 		StopSound(entity, SNDCHAN_STATIC, ")mvm/giant_heavy/giant_heavy_gunfire.wav");
 		StopSound(entity, SNDCHAN_STATIC, ")mvm/giant_heavy/giant_heavy_gunspin.wav");
 		StopSound(entity, SNDCHAN_STATIC, ")mvm/giant_heavy/giant_heavy_loop.wav");
