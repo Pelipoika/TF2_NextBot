@@ -23,18 +23,18 @@
 			}
 			
 			"GameRules"
-            {
-                "windows"
-                {
-                    "signature" "CreateGameRulesObject"                
-                    "read" "5"                    
-                }
-                "linux"
-                {
-                    "signature" "g_pGameRules"
-                }
-                "read" "0"
-            }
+			{
+				"windows"
+				{
+					"signature" "CreateGameRulesObject" 
+					"read" "5"
+				}
+				"linux"
+				{
+					"signature" "g_pGameRules"
+				}
+				"read" "0"
+			}
 		}
 		"Signatures"
 		{
