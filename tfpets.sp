@@ -2530,7 +2530,7 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	//	PrintToServer("area %i (%x) from_area %i (%x) length %f", area.GetID(), area, from_area.GetID(), from_area, length);
 	//Make me https://github.com/sigsegv-mvm/mvm-reversed/blob/3c60e2448fa660ab513b2c455eec33f33cedeac5/server/tf/bot/tf_bot.cpp
 
-	int TFNavAreaAttribs = LoadFromAddress(view_as<Address>(area) + view_as<Address>(0x54), NumberType_Int32);
+/*	int TFNavAreaAttribs = LoadFromAddress(view_as<Address>(area) + view_as<Address>(0x54), NumberType_Int32);
 	if(TFNavAreaAttribs != 0)
 	{
 		char strAttribs[PLATFORM_MAX_PATH];
@@ -2594,7 +2594,7 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 		if(CTFNavAreaAttribs & UNBLOCKABLE) strcopy(strAttribs, PLATFORM_MAX_PATH, " UNBLOCKABLE");
 		
 	//	PrintToServer("%s on #%i", strAttribs, area.GetID());
-	}
+	}*/
 
 	float dist;
 	if (length != 0.0) 

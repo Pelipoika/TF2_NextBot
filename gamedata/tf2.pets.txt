@@ -150,15 +150,15 @@
 			
 			//Get g_pGameRules pointer
 			"CreateGameRulesObject"	//<- "InitGameRules: g"
-            {
-                "library"    "server"
-                "windows"   "\x55\x8B\xEC\x8B\x0D\x2A\x2A\x2A\x2A\x85\xC9\x74\x2A\x8B\x01\x6A\x01"
-            }
-            "g_pGameRules"	//g_pGameRules
-            {
-                "library"    "server"
-                "linux"        "@g_pGameRules"
-            }
+			{
+				"library"    "server"
+				"windows"   "\x55\x8B\xEC\x8B\x0D\x2A\x2A\x2A\x2A\x85\xC9\x74\x2A\x8B\x01\x6A\x01"
+			}
+			"g_pGameRules"	//g_pGameRules
+			{
+				"library"    "server"
+				"linux"        "@g_pGameRules"
+			}
 		}
 		"Offsets"
 		{
@@ -178,6 +178,11 @@
 			{		
 				"windows"	"372"		
 				"linux"		"378"
+			}
+			"CTFWeaponBaseGun::HasAmmo" //()
+			{
+				"windows"	"231"
+				"linux"		"237"
 			}
 			"CTFWeaponBaseGun::GetProjectileSpeed" //(float)
 			{		
