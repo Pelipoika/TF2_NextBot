@@ -1425,7 +1425,8 @@ public Action Listener_Voice(int client, char[] command, int args)
 				
 			delete TraceRay;
 			
-			if(PF_IsPathToVectorPossible(npc.index, vecPos))
+			float no;
+			if(PF_IsPathToVectorPossible(npc.index, vecPos, no))
 			{
 				npc.SetSpecialPos(vecPos);
 				PF_SetGoalVector(npc.index, vecPos);
@@ -1796,7 +1797,8 @@ stock int FindNearestAmmoPack(int robot, float flPosOut[3])
 			
 			float flDistance = GetVectorDistance(flPos, flAmmoPos);
 			
-			if (flDistance <= flSmallestDistance && PF_IsPathToVectorPossible(robot, flAmmoPos))
+			float no;
+			if (flDistance <= flSmallestDistance && PF_IsPathToVectorPossible(robot, flAmmoPos, no))
 			{
 				iBestTarget = index;
 				flPosOut = flAmmoPos;

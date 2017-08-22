@@ -2910,7 +2910,8 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 		{
 			area.GetCenter(pos);
 			
-			if(PF_IsPathToVectorPossible(bot_entidx, pos))
+			float unused;
+			if(PF_IsPathToVectorPossible(bot_entidx, pos, unused))
 			{
 				PF_SetGoalVector(bot_entidx, pos);
 			}
