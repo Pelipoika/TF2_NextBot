@@ -1487,14 +1487,16 @@ public void PetEngineerThink(int iEntity)
 		{
 			float flPos[3];
 			int ammo = FindNearestAmmoPack(iEntity, flPos);
-			
-			Dynamic brain = npc.GetBrainInterface();
-			brain.SetFloat("MoveSpeed", 300.0);
-			
-			PF_SetGoalVector(iEntity, flPos);
-			npc.Pathing = true;
-			npc.IsGettingAmmo = true;
-			npc.AmmoRef = ammo;
+			if(IsValidEntity(ammo))
+			{			
+				Dynamic brain = npc.GetBrainInterface();
+				brain.SetFloat("MoveSpeed", 300.0);
+				
+				PF_SetGoalVector(iEntity, flPos);
+				npc.Pathing = true;
+				npc.IsGettingAmmo = true;
+				npc.AmmoRef = ammo;
+			}
 		}
 	}
 	
@@ -1817,7 +1819,7 @@ stock bool IsAmmoLow(int client)
 	int iAmmoMetal = GetAmmoCount(client, TF_AMMO_METAL);
 	
 	float flAmmoPercentage = (float(iAmmoCount) / float(iMaxAmmo));
-	return (flAmmoPercentage <= 0.3) || (iAmmoMetal <= 50);	//30% ammo or < 51 metal is considered low.
+	return (flAmmoPercentage <= 0.5) || (iAmmoMetal <= 50);	//50% ammo or < 51 metal is considered low.
 }
 
 stock int GetMaxAmmo(int client, int iAmmoType, int iClassNumber = -1)
@@ -2194,6 +2196,7 @@ public void OnMapStart()
 public void OnPluginStart()
 {
 	RegAdminCmd("sm_pets", Command_PetMenu, 0);
+	RegAdminCmd("sm_pests", Command_PetMenu, 0);
 	
 	AddCommandListener(Listener_Voice, "voicemenu");
 	
@@ -2477,56 +2480,6 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 	npc.FaceTowards(vec);
 }
 
-// TODO: figure out if this belongs here or elsewhere
-enum /*TFNavAttributeType*/
-{
-	BLOCKED                     = (1 << 0),
-	
-	RED_SPAWN_ROOM              = (1 << 1),
-	BLUE_SPAWN_ROOM             = (1 << 2),
-	SPAWN_ROOM_EXIT             = (1 << 3),
-	
-	AMMO                        = (1 << 4),
-	HEALTH                      = (1 << 5),
-	
-	CONTROL_POINT               = (1 << 6),
-	
-	BLUE_SENTRY                 = (1 << 7),
-	RED_SENTRY                  = (1 << 8),
-	
-	/* bit  9: unused */
-	/* bit 10: unused */
-	
-	BLUE_SETUP_GATE             = (1 << 11),
-	RED_SETUP_GATE              = (1 << 12),
-	
-	BLOCKED_AFTER_POINT_CAPTURE = (1 << 13),
-	BLOCKED_UNTIL_POINT_CAPTURE = (1 << 14),
-	
-	BLUE_ONE_WAY_DOOR           = (1 << 15),
-	RED_ONE_WAY_DOOR            = (1 << 16),
-	
-	WITH_SECOND_POINT           = (1 << 17),
-	WITH_THIRD_POINT            = (1 << 18),
-	WITH_FOURTH_POINT           = (1 << 19),
-	WITH_FIFTH_POINT            = (1 << 20),
-	
-	SNIPER_SPOT                 = (1 << 21),
-	SENTRY_SPOT                 = (1 << 22),
-	
-	/* bit 23: unused */
-	/* bit 24: unused */
-	
-	NO_SPAWNING                 = (1 << 25),
-	RESCUE_CLOSET               = (1 << 26),
-	BOMB_DROP                   = (1 << 27),
-	DOOR_NEVER_BLOCKS           = (1 << 28),
-	DOOR_ALWAYS_BLOCKS          = (1 << 29),
-	UNBLOCKABLE                 = (1 << 30),
-	
-	/* bit 31: unused */
-};
-
 public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
 {
 	//	PrintToServer("area %i (%x) from_area %i (%x) length %f", area.GetID(), area, from_area.GetID(), from_area, length);
@@ -2595,7 +2548,7 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 		if(CTFNavAreaAttribs & DOOR_ALWAYS_BLOCKS) strcopy(strAttribs, PLATFORM_MAX_PATH, " DOOR_ALWAYS_BLOCKS");
 		if(CTFNavAreaAttribs & UNBLOCKABLE) strcopy(strAttribs, PLATFORM_MAX_PATH, " UNBLOCKABLE");
 		
-	//	PrintToServer("%s on #%i", strAttribs, area.GetID());
+		PrintToServer("%s on %x #%i GetPlayerCount %i CombatIntensity %f", strAttribs, area, area.GetID(), area.GetPlayerCount(), GetCombatIntensity(area));
 	}*/
 
 	float dist;
@@ -2626,11 +2579,6 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	float cost = dist * multiplier;
 	
 	return from_area.GetCostSoFar() + cost;
-}
-
-stock bool HasTFAttributes(NavArea area)
-{
-	
 }
 
 public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float dir[2])

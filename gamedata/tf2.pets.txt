@@ -43,6 +43,13 @@
 				"library"	"server"
 				"windows"	"\x55\x8B\xEC\x53\x56\x8B\x75\x08\x85\xF6\x0F\x84\x2A\x2A\x2A\x2A"
 			}
+			
+			"CBasePlayer::SnapEyeAngles"
+			{
+				"windows"	"\x55\x8B\xEC\x8B\x45\x08\xD9\x00\xD9\x99\x58\x0A\x00\x00"
+				"linux"		"@_ZN11CBasePlayer13SnapEyeAnglesERK6QAngle"
+			}
+			
 			"CBaseAnimating::ResetSequence"		//(int nSequence) "ResetSequence : %s: %s -> %s\n"
 			{
 				"windows"	"\x55\x8B\xEC\xA1\x2A\x2A\x2A\x2A\x53\x56\x57\x83\x78\x30\x00\x8B\xD9\x8B\x7D\x08"
