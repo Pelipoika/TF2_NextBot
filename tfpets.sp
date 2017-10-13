@@ -698,7 +698,7 @@ methodmap PetTank < BaseNPC
 		pet.Pathing = true;
 		
 		EmitSoundToAll(")mvm/mvm_tank_start.wav", pet.index);
-		EmitSoundToAll(")mvm/mvm_tank_loop.wav",  pet.index, _, _, _, 0.20);
+		//EmitSoundToAll(")mvm/mvm_tank_loop.wav",  pet.index, _, _, _, 0.20);
 		
 		TF2_CreateParticle(pet.index, "smoke_attachment", "buildingdamage_smoke3");
 		
