@@ -177,29 +177,29 @@
 			
 			"CTFPlayer::GetAmmoCount" //(int)
 			{		
-				"windows"	"257"		
-				"linux"		"258"
+				"windows"	"258"		
+				"linux"		"259"
 			}	
 			
 			"CTFWeaponBaseGun::GetWeaponID" //(int)
 			{		
-				"windows"	"372"		
-				"linux"		"378"
+				"windows"	"371"		
+				"linux"		"377"
 			}
 			"CTFWeaponBaseGun::HasAmmo" //()
 			{
-				"windows"	"231"
-				"linux"		"237"
+				"windows"	"232"
+				"linux"		"238"
 			}
 			"CTFWeaponBaseGun::GetProjectileSpeed" //(float)
 			{		
-				"windows"	"462"		
-				"linux"		"469"
+				"windows"	"470"		
+				"linux"		"477"
 			}
 			"CTFWeaponBaseGun::GetProjectileGravity" //(float)
 			{		
-				"windows"	"463"		
-				"linux"		"470"
+				"windows"	"471"		
+				"linux"		"477"
 			}
 			
 			"CTFBaseBoss::GetCurrencyValue"
@@ -207,6 +207,7 @@
 				"windows"	"328"
 				"linux"		"333"
 			}
+			
 			"CBaseEntity::WorldSpaceCenter"		
 			{		
 				"windows"	"149"		
@@ -214,7 +215,7 @@
 			}
 			"CBaseEntity::GetSmoothedVelocity"
 			{
-				"windows"	"138"
+				"windows"	"139"
 				"linux"		"140"
 			}
 			"CBaseEntity::MyNextBotPointer"
@@ -229,18 +230,18 @@
 			}
 			"CBaseAnimating::StudioFrameAdvance"
 			{
-				"windows"	"192"
-				"linux"		"193"
+				"windows"	"193"
+				"linux"		"194"
 			}
 			"CBaseAnimating::DispatchAnimEvents"
 			{
-				"windows"	"204"
-				"linux"		"205"
+				"windows"	"205"
+				"linux"		"206"
 			}
 			"CBaseAnimating::HandleAnimEvent" //(animevent_t*)
 			{
-				"windows"	"205"
-				"linux"		"206"
+				"windows"	"206"
+				"linux"		"207"
 			}
 			"INextBot::GetLocomotionInterface"
 			{
@@ -289,8 +290,8 @@
 			}
 			"ILocomotion::IsAttemptingToMove"
 			{
-				"windows"	"99"
-				"linux"		"100"
+				"windows"	"98"
+				"linux"		"99"
 			}
 			"ILocomotion::StuckMonitor"
 			{
@@ -427,6 +428,7 @@
 				"windows"	"53"
 				"linux"		"54"
 			}
+			
 			"CKnownEntity::GetEntity"
 			{
 				"windows"	"3"
@@ -442,6 +444,7 @@
 				"windows"	"10"
 				"linux"		"11"
 			}
+			
 			"IBody::GetSolidMask"
 			{
 				"windows"	"80"
@@ -485,8 +488,8 @@
 			
 			"CBaseCombatCharacter::ShouldGib"
 			{
-				"windows"	"288"
-				"linux"		"289"
+				"windows"	"289"
+				"linux"		"290"
 			}
 		}
 	}
