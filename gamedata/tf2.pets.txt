@@ -80,9 +80,9 @@
 				"windows"	"\x55\x8B\xEC\x56\x8B\x75\x08\x85\xF6\x75\x2A\x33\xC0\x5E\x5D\xC3\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x53"
 				"linux"		"@_Z14LookupSequenceP10CStudioHdrPKc"
 			}
-			"CTFPlayer::GetMaxAmmo" //int (int AmmoType, int idk)
+			"CTFPlayer::GetMaxAmmo" //int (int AmmoType, int idk)	"mult_maxammo_primary"
 			{
-				"windows"	"\x55\x8B\xEC\x8B\x45\x0C\x53\x8B\xD9\x56\x57\x83\xF8\xFF\x75\x2A\xFF\xB3\x58\x20\x00\x00"
+				"windows"	"\x55\x8B\xEC\x8B\x45\x0C\x56\x57\x8B\xF9\x83\xF8\xFF"
 				"linux"		"@_ZN9CTFPlayer10GetMaxAmmoEii"
 			}
 			"Studio_FindAttachment" //int ( const CStudioHdr *pStudioHdr, const char *pAttachmentName ) <- "alt-origin"
@@ -92,7 +92,7 @@
 			}
 			"CBaseAnimating::GetAttachment" //bool ( int iAttachment, Vector &absOrigin, QAngle &absAngles ) <- "alt-origin"
 			{
-				"windows"	"\x55\x8B\xEC\x8B\x01\x8D\x55\xD0\x83\xEC\x30\x8B\x80\x3C\x03\x00\x00\x53\x52\xFF\x75\x08\xFF\xD0\xFF\x75\x10"
+				"windows"	"\x55\x8B\xEC\x8B\x01\x8D\x55\xD0\x83\xEC\x30\x8B\x80\x40\x03\x00\x00\x53\x52\xFF\x75\x08\xFF\xD0\xFF\x75\x10"
 				"linux"		"@_ZN14CBaseAnimating13GetAttachmentEiR6VectorR6QAngle"
 			}
 			"CBaseAnimatingOverlay::IsPlayingGesture" // (Activity activity)
@@ -124,7 +124,7 @@
 			//CTFGameRules
 			"CTFGameRules::CanUpgradeWithAttrib" //CTFPlayer *, int, ushort, CMannVsMachineUpgrades *
 			{
-				"windows"	"\x55\x8B\xEC\x83\xEC\x10\x53\x8B\x5D\x08\x85\xDB\x75\x2A"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x14\x53\x8B\x5D\x08\x85\xDB\x75\x2A"
 				"linux"		"@_ZN12CTFGameRules20CanUpgradeWithAttribEP9CTFPlayeritP22CMannVsMachineUpgrades"
 			}
 			"CTFGameRules::GetCostForUpgrade" //(CMannVsMachineUpgrades *upgrade, int slot, int pclass, CTFPlayer *player) 
@@ -199,7 +199,7 @@
 			"CTFWeaponBaseGun::GetProjectileGravity" //(float)
 			{		
 				"windows"	"471"		
-				"linux"		"477"
+				"linux"		"478"
 			}
 			
 			"CTFBaseBoss::GetCurrencyValue"
