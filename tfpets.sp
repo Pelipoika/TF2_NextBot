@@ -102,6 +102,7 @@ Handle g_hGetHullMins;
 Handle g_hGetHullMaxs;
 
 //Sentry Buster
+//taunt_yeti
 
 public Plugin myinfo = 
 {
@@ -2037,6 +2038,7 @@ public Action Command_PetMenu(int client, int argc)
 	menu.AddItem("4", "Merasmus");
 	menu.AddItem("5", "Skeleton King");
 	menu.AddItem("6", "Mini-Me");
+	menu.AddItem("7", "Yeti");
 	menu.Display(client, MENU_TIME_FOREVER);
 	
 	return Plugin_Handled;
@@ -2123,6 +2125,17 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 			case 6:
 			{
 				PetMiniMe npc = PetMiniMe(param1, flPos, flAng);
+				npc.Update();
+			}
+			case 7:
+			{
+				PetMiniMe npc = PetMiniMe(param1, flPos, flAng);
+				
+				DispatchKeyValue(npc.index, "model", "models/player/heavy.mdl");
+				SetEntityModel(npc.index, "models/player/heavy.mdl");
+				SetEntProp(npc.index, Prop_Send, "m_nRenderFX", 6);
+				
+				npc.EquipItem("head", "models/player/items/taunts/yeti/yeti.mdl");
 				npc.Update();
 			}
 		}
@@ -2728,7 +2741,7 @@ stock void MerasmusBomb(int client, float flPos[3], float flVelocity[3], float f
 	SetEntPropFloat(bomb, Prop_Data, "m_flDamage", flDamage);
 	SetEntPropFloat(bomb, Prop_Data, "m_flModelScale", 1.0);
 	SetEntPropFloat(bomb, Prop_Send, "m_flModelScale", 1.0);
-	SetEntDataFloat(bomb, 1248, GetGameTime() + 2.0);	//Fuse time
+	SetEntDataFloat(bomb, 1288, GetGameTime() + 2.0);	//Fuse time
 	SetEntProp(bomb, Prop_Send, "m_CollisionGroup", 24);
 	SetEntProp(bomb, Prop_Data, "m_CollisionGroup", 24);
 }
