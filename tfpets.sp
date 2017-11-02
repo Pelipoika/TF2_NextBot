@@ -158,7 +158,7 @@ methodmap BaseNPC
 		SetEntProp(npc, Prop_Data, "m_nSolidType", 0); 
 
 		ActivateEntity(npc);
-				
+		
 		char strName[64];
 		Format(strName, sizeof(strName), "basenpc_%x", EntIndexToEntRef(npc));
 		

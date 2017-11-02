@@ -191,15 +191,16 @@
 				"windows"	"232"
 				"linux"		"238"
 			}
+			
 			"CTFWeaponBaseGun::GetProjectileSpeed" //(float)
 			{		
-				"windows"	"470"		
-				"linux"		"477"
+				"windows"	"472"		
+				"linux"		"479"
 			}
 			"CTFWeaponBaseGun::GetProjectileGravity" //(float)
 			{		
-				"windows"	"471"		
-				"linux"		"478"
+				"windows"	"473"		
+				"linux"		"480"
 			}
 			
 			"CTFBaseBoss::GetCurrencyValue"
