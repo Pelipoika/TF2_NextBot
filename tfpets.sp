@@ -1762,7 +1762,7 @@ public void PetMedicThink(int iEntity)
 			{
 				if(GetClientHealth(client) < GetEntProp(GetPlayerResourceEntity(), Prop_Send, "m_iMaxHealth", _, client))
 				{
-					SetEntityHealth(client, GetClientHealth(client) + 2);
+					SetEntityHealth(client, GetClientHealth(client) + 1);
 				}
 				
 				npc.NextHealTime = GetGameTime() + 0.5;
