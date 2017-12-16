@@ -184,7 +184,7 @@
 			"CTFWeaponBaseGun::GetWeaponID" //(int)
 			{		
 				"windows"	"372"		
-				"linux"		"378"
+				"linux"		"379"
 			}
 			"CTFWeaponBaseGun::HasAmmo" //()
 			{
@@ -229,6 +229,7 @@
 				"windows"	"136"
 				"linux"		"137"
 			}
+			
 			"CBaseAnimating::StudioFrameAdvance"
 			{
 				"windows"	"193"
@@ -244,6 +245,7 @@
 				"windows"	"206"
 				"linux"		"207"
 			}
+			
 			"INextBot::GetLocomotionInterface"
 			{
 				"windows"	"48"
@@ -264,6 +266,7 @@
 				"windows"	"44"
 				"linux"		"45"
 			}
+			
 			"INextBotComponent::GetBot"
 			{
 				"windows"	"45"
@@ -274,6 +277,7 @@
 				"windows"	"46"
 				"linux"		"47"
 			}
+			
 			"ILocomotion::Approach"
 			{
 				"windows"	"46"
@@ -414,6 +418,7 @@
 				"windows"	"84"
 				"linux"		"85"
 			}
+			
 			"IVision::GetPrimaryKnownThreat"
 			{
 				"windows"	"48"
