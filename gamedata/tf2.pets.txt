@@ -205,7 +205,7 @@
 			
 			"CTFBaseBoss::GetCurrencyValue"
 			{
-				"windows"	"328"
+				"windows"	"329" //Windows always +1 off
 				"linux"		"333"
 			}
 			
