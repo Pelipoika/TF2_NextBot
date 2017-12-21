@@ -40,11 +40,13 @@ enum
 
 char s_skeletonHatModels[][] = 
 {
-	"models/player/items/demo/crown.mdl",
+/*	"models/player/items/demo/crown.mdl",
 	"models/player/items/all_class/skull_scout.mdl",
 	"models/workshop/player/items/scout/hw2013_boston_bandy_mask/hw2013_boston_bandy_mask.mdl",
 	"models/workshop/player/items/demo/hw2013_blackguards_bicorn/hw2013_blackguards_bicorn.mdl",
-	"models/player/items/heavy/heavy_big_chief.mdl"
+	"models/player/items/heavy/heavy_big_chief.mdl"*/
+	
+	"models/player/items/all_class/xms_santa_hat_sniper.mdl"
 }
 
 //SDKCalls
@@ -569,6 +571,8 @@ methodmap PetMedic < BaseNPC
 		SDKHook(pet.index, SDKHook_Think, PetMedicThink);
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		
+		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_medic.mdl");
+		
 		return view_as<PetMedic>(pet);
 	}
 	
@@ -837,6 +841,8 @@ methodmap PetEngineer < BaseNPC
 		//Controls 9 way blend animation managing
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		
+		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_engineer.mdl");
+		
 		return view_as<PetEngineer>(pet);
 	}
 	
@@ -978,6 +984,8 @@ methodmap PetMerasmus < BaseNPC
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		SDKHook(pet.index, SDKHook_Think, PetMerasmusThink);
 		
+		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_sniper.mdl");
+		
 		return view_as<PetMerasmus>(pet);
 	}
 }
@@ -1090,10 +1098,44 @@ methodmap PetYeti < BaseNPC
 		SDKHook(pet.index, SDKHook_Think, PetYetiThink);
 				
 		pet.EquipItem("head", "models/player/items/taunts/yeti/yeti.mdl");
+		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_heavy.mdl");
 		
 		return view_as<PetYeti>(pet);
 	}
 }
+
+methodmap PetDeskBoy < BaseNPC
+{
+	public PetDeskBoy(int client, float vecPos[3], float vecAng[3])
+	{
+		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/player/engineer.mdl", "0.5");
+		
+		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
+		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
+		
+		Dynamic brain = pet.GetBrainInterface();
+		//REQUIRED
+		brain.SetString("MoveAnim", "taunt_russian");
+		brain.SetFloat("MoveSpeed", 150.0);
+		brain.SetString("IdleAnim", "taunt_russian");
+		brain.SetFloat("OutOfRange", 300.0);
+		//////////
+		
+		int iSequenceMove = SDKCall(g_hLookupSequence, pet.GetStudioHdr(), "taunt_russian");
+		SDKCall(g_hResetSequence, pet.index, iSequenceMove);
+		
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.Pathing = true;
+		
+		//SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
+		SDKHook(pet.index, SDKHook_Think, DeskBoyThink);
+		
+		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_engineer.mdl");
+		
+		return view_as<PetDeskBoy>(pet);
+	}
+}
+
 
 //Stop when near owner
 //Adjust speed near owner
@@ -1232,6 +1274,19 @@ public void PetYetiThink(int iEntity)
 			}
 		}
 	}
+}
+
+public void DeskBoyThink(int iEntity)
+{
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
+	{
+		AcceptEntityInput(iEntity, "Kill");
+		return;
+	}
+	
+	SetEntProp(iEntity, Prop_Data, "m_bSequenceLoops", true);
+	//SetEntPropFloat(iEntity, Prop_Send, "m_flPlaybackRate", Cosine(GetGameTime() * 0.5 + 2.0);
 }
 
 public void PetMerasmusThink(int iEntity)
@@ -2157,6 +2212,7 @@ public Action Command_PetMenu(int client, int argc)
 	menu.AddItem("5", "Skeleton King");
 	menu.AddItem("6", "Mini-Me");
 	menu.AddItem("7", "Yeti");
+	menu.AddItem("8", "Deskboye");
 	menu.Display(client, MENU_TIME_FOREVER);
 	
 	return Plugin_Handled;
@@ -2217,7 +2273,7 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 				PetMedic npc = PetMedic(param1, flPos, flAng, "models/player/medic.mdl");
 				
 				npc.Weapon = npc.EquipItem("head", "models/weapons/c_models/c_medigun/c_medigun.mdl", _, 8);
-				npc.EquipItem("head", "models/workshop/player/items/all_class/short2014_lil_moe/short2014_lil_moe_medic.mdl", _, GetClientTeam(param1) - 2);
+				//npc.EquipItem("head", "models/workshop/player/items/all_class/short2014_lil_moe/short2014_lil_moe_medic.mdl", _, GetClientTeam(param1) - 2);
 				npc.EquipItem("head", "models/workshop/player/items/medic/hawaiian_shirt/hawaiian_shirt.mdl", _, GetClientTeam(param1) - 2);
 				
 				npc.StartHealing(param1);
@@ -2248,6 +2304,11 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 			case 7:
 			{
 				PetYeti npc = PetYeti(param1, flPos, flAng);
+				npc.Update();
+			}
+			case 8:
+			{
+				PetDeskBoy npc = PetDeskBoy(param1, flPos, flAng);
 				npc.Update();
 			}
 		}
