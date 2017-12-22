@@ -127,7 +127,8 @@ methodmap BaseNPC
 		DispatchKeyValue(npc,       "health",     health);
 		DispatchSpawn(npc);
 		
-		CreateParticle("ghost_appearation", vecPos, vecAng);
+		//CreateParticle("ghost_appearation", vecPos, vecAng);
+		CreateParticle("xms_snowburst", vecPos, vecAng);
 		
 		Address pNB =         SDKCall(g_hMyNextBotPointer,        npc);
 		Address pLocomotion = SDKCall(g_hGetLocomotionInterface,  pNB);
