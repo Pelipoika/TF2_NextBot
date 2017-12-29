@@ -183,8 +183,8 @@
 			
 			"CTFWeaponBaseGun::GetWeaponID" //(int)
 			{		
-				"windows"	"372"		
-				"linux"		"379"
+				"windows"	"371"		
+				"linux"		"378"
 			}
 			"CTFWeaponBaseGun::HasAmmo" //()
 			{
