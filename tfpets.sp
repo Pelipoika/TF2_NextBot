@@ -464,6 +464,7 @@ methodmap BaseNPC
 		PF_EnableCallback(this.index, PFCB_Approach, PluginBot_Approach);
 		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge, PluginBot_Jump);
 		PF_EnableCallback(this.index, PFCB_GetPathCost, PluginBot_PathCost);
+		PF_EnableCallback(this.index, PFCB_OnMoveToFailure, PluginBot_PathFail);
 	}	
 	public void Approach(const float vecGoal[3])
 	{
@@ -2850,6 +2851,11 @@ public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float di
 			npc.SetAnimation(JumpAnim);
 		}
 	}
+}
+
+public void PluginBot_PathFail(int bot_entidx, Address path, MoveToFailureType fail)
+{
+	PrintToServer(">>>>>>>>>> PluginBot_PathFail %i path 0x%X reason %i", bot_entidx, path, fail);
 }
 
 stock void CreateParticle(char[] particle, float pos[3], float ang[3])

@@ -27,7 +27,6 @@ Handle g_hGetVelocity;
 Handle g_hSetVelocity;
 Handle g_hStudioFrameAdvance;
 Handle g_hJump;
-Handle g_hDispatchAnimEvents;
 Handle g_hGetMaxAcceleration;
 Handle g_hGetGroundSpeed;
 Handle g_hLookupPoseParameter;
@@ -409,8 +408,6 @@ public void BasicPetThink(int iEntity)
 		
 		SetEntPropFloat(iEntity, Prop_Send, "m_flPlaybackRate", flReturnValue);
 	}
-	
-	//SDKCall(g_hDispatchAnimEvents, iEntity, iEntity);
 }
 
 stock float[] WorldSpaceCenter(int entity)
@@ -528,11 +525,6 @@ public void OnPluginStart()
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "ILocomotion::SetVelocity");
 	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_ByRef);
 	if((g_hSetVelocity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for ILocomotion::SetVelocity!");
-	
-	StartPrepSDKCall(SDKCall_Entity);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseAnimating::DispatchAnimEvents");
-	PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
-	if ((g_hDispatchAnimEvents = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::DispatchAnimEvents offset!"); 
 
 	//ILocomotion::GetGroundSpeed() 
 	StartPrepSDKCall(SDKCall_Raw);
