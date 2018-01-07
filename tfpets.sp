@@ -150,8 +150,10 @@ methodmap BaseNPC
 		DHookRaw(g_hGetHullHeight,       true, pBody);
 		DHookRaw(g_hGetStandHullHeight,  true, pBody);
 		DHookRaw(g_hGetCrouchHullHeight, true, pBody);
-		DHookRaw(g_hGetHullMins,         true, pBody);
-		DHookRaw(g_hGetHullMaxs,         true, pBody);
+		
+		//Already handled for us.
+		//DHookRaw(g_hGetHullMins,         true, pBody);
+		//DHookRaw(g_hGetHullMaxs,         true, pBody);
 		
 		SetEntityFlags(npc, FL_NOTARGET);
 		
@@ -176,6 +178,13 @@ methodmap BaseNPC
 		brain.SetName(strName);
 		
 		SDKHook(npc, SDKHook_Think, BasicPetThink);
+		
+		//Fix collisions
+		SetEntPropVector(npc, Prop_Send, "m_vecMaxs", view_as<float>( { 6.5, 6.5, 34.0 } ));
+		SetEntPropVector(npc, Prop_Data, "m_vecMaxs", view_as<float>( { 6.5, 6.5, 34.0 } ));
+		
+		SetEntPropVector(npc, Prop_Send, "m_vecMins", view_as<float>( { -6.5, -6.5, 0.0 } ));
+		SetEntPropVector(npc, Prop_Data, "m_vecMins", view_as<float>( { -6.5, -6.5, 0.0 } ));
 		
 		return view_as<BaseNPC>(npc);
 	}
@@ -1055,6 +1064,7 @@ methodmap PetMiniMe < BaseNPC
 			{
 				GetEntPropString(iWearable, Prop_Data, "m_ModelName", strModel, PLATFORM_MAX_PATH);
 				int iItem = pet.EquipItem("head", strModel, _, GetClientTeam(client) - 2);
+				
 				SetVariantString("1.0");
 				AcceptEntityInput(iItem, "SetModelScale");
 			}
@@ -2652,14 +2662,43 @@ public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle h
 	return MRES_Supercede;
 }
 
-public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, MASK_NPCSOLID | MASK_PLAYERSOLID); return MRES_Supercede; }
-public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, true); return MRES_Supercede; }
-public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, 13.0); return MRES_Supercede; }
-public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
-public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
-public MRESReturn IBody_GetCrouchHullHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 16.0); return MRES_Supercede; }
-public MRESReturn IBody_GetHullMins(Address pThis, Handle hReturn, Handle hParams)               { DHookSetReturnVector(hReturn, view_as<float>( { -6.5, -6.5, 0.0 } )); return MRES_Supercede; }
-public MRESReturn IBody_GetHullMaxs(Address pThis, Handle hReturn, Handle hParams)               { DHookSetReturnVector(hReturn, view_as<float>( { 6.5, 6.5, 68.0 } ));  return MRES_Supercede; }
+public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, MASK_NPCSOLID | MASK_PLAYERSOLID); return MRES_Supercede; }
+public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, true); return MRES_Supercede; }
+public MRESReturn IBody_GetCrouchHullHeight(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 16.0); return MRES_Supercede; }
+public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
+public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 13.0); return MRES_Supercede; }
+public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
+
+/*
+min -6.500000 -6.500000 0.000000
+max 6.500000 6.500000 34.000000
+*/
+
+public MRESReturn IBody_GetHullMins(Address pThis, Handle hReturn, Handle hParams)         
+{ 
+	//DHookSetReturnVector(hReturn, view_as<float>( { -6.5, -6.5, 0.0 } )); 
+	//return MRES_Supercede; 
+	
+	float vec[3]; 
+	DHookGetReturnVector(hReturn, vec);
+	
+	PrintToServer("min %f %f %f", vec[0], vec[1], vec[2]);
+	
+	return MRES_Ignored; 
+}
+
+public MRESReturn IBody_GetHullMaxs(Address pThis, Handle hReturn, Handle hParams)         
+{ 
+	//DHookSetReturnVector(hReturn, view_as<float>( { 6.5, 6.5, 68.0 } ));  
+	//return MRES_Supercede; 
+	
+	float vec[3]; 
+	DHookGetReturnVector(hReturn, vec);
+	
+	PrintToServer("max %f %f %f", vec[0], vec[1], vec[2]);
+	
+	return MRES_Ignored; 
+}
 
 public void PluginBot_Approach(int bot_entidx, const float vec[3])
 {

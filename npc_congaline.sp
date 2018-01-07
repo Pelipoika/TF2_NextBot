@@ -55,8 +55,6 @@ Handle g_hGetHullWidth;
 Handle g_hGetHullHeight;
 Handle g_hGetStandHullHeight;
 Handle g_hGetCrouchHullHeight;
-Handle g_hGetHullMins;
-Handle g_hGetHullMaxs;
 
 char s_cast[][] = 
 {
@@ -112,8 +110,6 @@ methodmap BaseNPC
 		DHookRaw(g_hGetHullHeight,       true, pBody);
 		DHookRaw(g_hGetStandHullHeight,  true, pBody);
 		DHookRaw(g_hGetCrouchHullHeight, true, pBody);
-		DHookRaw(g_hGetHullMins,         true, pBody);
-		DHookRaw(g_hGetHullMaxs,         true, pBody);
 		
 		SetEntityFlags(npc, FL_NOTARGET);
 		
@@ -132,6 +128,13 @@ methodmap BaseNPC
 		brain.SetName(strName);
 		
 		SDKHook(npc, SDKHook_Think, BasicPetThink);
+		
+		//Fix collisions
+		SetEntPropVector(npc, Prop_Send, "m_vecMaxs", view_as<float>( { 6.5, 6.5, 34.0 } ));
+		SetEntPropVector(npc, Prop_Data, "m_vecMaxs", view_as<float>( { 6.5, 6.5, 34.0 } ));
+		
+		SetEntPropVector(npc, Prop_Send, "m_vecMins", view_as<float>( { -6.5, -6.5, 0.0 } ));
+		SetEntPropVector(npc, Prop_Data, "m_vecMins", view_as<float>( { -6.5, -6.5, 0.0 } ));
 		
 		return view_as<BaseNPC>(npc);
 	}
@@ -434,7 +437,7 @@ public Action Command_CongaLine(int client, int argc)
 	//First congaer in the line.
 	CongaMember iLineLeader = leader;
 	
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i <= 32; i++)
 	{	
 		leader = CongaMember(leader, wsc, NULL_VECTOR);
 		SetEntProp(leader.index, Prop_Send, "m_hEffectEntity", view_as<int>(iLineLeader));
@@ -630,8 +633,6 @@ public void OnPluginStart()
 	g_hGetHullHeight       = DHookCreateEx(hConf, "IBody::GetHullHeight",            HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetHullHeight);
 	g_hGetStandHullHeight  = DHookCreateEx(hConf, "IBody::GetStandHullHeight",       HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetStandHullHeight);
 	g_hGetCrouchHullHeight = DHookCreateEx(hConf, "IBody::GetCrouchHullHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetCrouchHullHeight);
-	g_hGetHullMins         = DHookCreateEx(hConf, "IBody::GetHullMins",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMins);
-	g_hGetHullMaxs         = DHookCreateEx(hConf, "IBody::GetHullMaxs",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMaxs);
 	g_hStartActivity       = DHookCreateEx(hConf, "IBody::StartActivity",            HookType_Raw, ReturnType_Bool,      ThisPointer_Address, IBody_StartActivity);
 	
 	delete hConf;
@@ -656,14 +657,12 @@ public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn,
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturn(hReturn, false);  return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 800.0);	return MRES_Supercede; }
 
-public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, MASK_NPCSOLID|MASK_PLAYERSOLID); return MRES_Supercede; }
-public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, true); return MRES_Supercede; }
-public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, 13.0); return MRES_Supercede; }
-public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
-public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
-public MRESReturn IBody_GetCrouchHullHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 16.0); return MRES_Supercede; }
-public MRESReturn IBody_GetHullMins(Address pThis, Handle hReturn, Handle hParams)               { DHookSetReturnVector(hReturn, view_as<float>( { -6.5, -6.5, 0.0 } )); return MRES_Supercede; }
-public MRESReturn IBody_GetHullMaxs(Address pThis, Handle hReturn, Handle hParams)               { DHookSetReturnVector(hReturn, view_as<float>( { 6.5, 6.5, 68.0 } ));  return MRES_Supercede; }
+public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, MASK_NPCSOLID | MASK_PLAYERSOLID); return MRES_Supercede; }
+public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, true); return MRES_Supercede; }
+public MRESReturn IBody_GetCrouchHullHeight(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 16.0); return MRES_Supercede; }
+public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
+public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 13.0); return MRES_Supercede; }
+public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
 
 public void PluginBot_Approach(int bot_entidx, const float vec[3])
 {
