@@ -40,13 +40,13 @@ enum
 
 char s_skeletonHatModels[][] = 
 {
-/*	"models/player/items/demo/crown.mdl",
+	"models/player/items/demo/crown.mdl",
 	"models/player/items/all_class/skull_scout.mdl",
 	"models/workshop/player/items/scout/hw2013_boston_bandy_mask/hw2013_boston_bandy_mask.mdl",
 	"models/workshop/player/items/demo/hw2013_blackguards_bicorn/hw2013_blackguards_bicorn.mdl",
-	"models/player/items/heavy/heavy_big_chief.mdl"*/
+	"models/player/items/heavy/heavy_big_chief.mdl"
 	
-	"models/player/items/all_class/xms_santa_hat_sniper.mdl"
+	//"models/player/items/all_class/xms_santa_hat_sniper.mdl"
 }
 
 //SDKCalls
@@ -100,8 +100,6 @@ Handle g_hGetHullWidth;
 Handle g_hGetHullHeight;
 Handle g_hGetStandHullHeight;
 Handle g_hGetCrouchHullHeight;
-Handle g_hGetHullMins;
-Handle g_hGetHullMaxs;
 
 //Sentry Buster
 //taunt_yeti
@@ -127,8 +125,8 @@ methodmap BaseNPC
 		DispatchKeyValue(npc,       "health",     health);
 		DispatchSpawn(npc);
 		
-		//CreateParticle("ghost_appearation", vecPos, vecAng);
-		CreateParticle("xms_snowburst", vecPos, vecAng);
+		CreateParticle("ghost_appearation", vecPos, vecAng);
+		//CreateParticle("xms_snowburst", vecPos, vecAng);
 		
 		Address pNB =         SDKCall(g_hMyNextBotPointer,        npc);
 		Address pLocomotion = SDKCall(g_hGetLocomotionInterface,  pNB);
@@ -150,10 +148,6 @@ methodmap BaseNPC
 		DHookRaw(g_hGetHullHeight,       true, pBody);
 		DHookRaw(g_hGetStandHullHeight,  true, pBody);
 		DHookRaw(g_hGetCrouchHullHeight, true, pBody);
-		
-		//Already handled for us.
-		//DHookRaw(g_hGetHullMins,         true, pBody);
-		//DHookRaw(g_hGetHullMaxs,         true, pBody);
 		
 		SetEntityFlags(npc, FL_NOTARGET);
 		
@@ -474,12 +468,14 @@ methodmap BaseNPC
 		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge, PluginBot_Jump);
 		PF_EnableCallback(this.index, PFCB_GetPathCost, PluginBot_PathCost);
 		PF_EnableCallback(this.index, PFCB_OnMoveToFailure, PluginBot_PathFail);
+		//PF_EnableCallback(this.index, PFCB_OnContact, PluginBot_OnContact);
+		PF_EnableCallback(this.index, PFCB_OnActorEmoted, PluginBot_OnActorEmoted);
 	}	
 	public void Approach(const float vecGoal[3])
 	{
 		SDKCall(g_hApproach, this.GetLocomotionInterface(), vecGoal, 0.1);
 	}	
-	public void FaceTowards(const float vecGoal[3], float speed = 200.0)
+	public void FaceTowards(const float vecGoal[3], float speed = 250.0)
 	{
 		//Sad!
 		ConVar flTurnRate = FindConVar("tf_base_boss_max_turn_rate");
@@ -574,7 +570,7 @@ methodmap PetMedic < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.SetAnimation("run_SECONDARY");
 		pet.Pathing = true;
 		
@@ -582,7 +578,7 @@ methodmap PetMedic < BaseNPC
 		SDKHook(pet.index, SDKHook_Think, PetMedicThink);
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		
-		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_medic.mdl");
+		//pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_medic.mdl");
 		
 		return view_as<PetMedic>(pet);
 	}
@@ -709,7 +705,7 @@ methodmap PetTank < BaseNPC
 		brain.SetInt("Bomb", INVALID_ENT_REFERENCE);
 		brain.SetBool("Deploying", false);
 		
-		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.SetAnimation("movement");
 		pet.Pathing = true;
 		
@@ -841,7 +837,7 @@ methodmap PetEngineer < BaseNPC
 		brain.SetInt("AmmoRef", INVALID_ENT_REFERENCE);
 		brain.SetFloat("NextAmmoCheckTime", GetGameTime() + 5.0);
 		
-		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.SetAnimation("Stand_PRIMARY");
 		pet.Pathing = true;
 		
@@ -852,7 +848,7 @@ methodmap PetEngineer < BaseNPC
 		//Controls 9 way blend animation managing
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		
-		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_engineer.mdl");
+		//pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_engineer.mdl");
 		
 		return view_as<PetEngineer>(pet);
 	}
@@ -987,7 +983,7 @@ methodmap PetMerasmus < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.SetAnimation("run_MELEE");
 		pet.Pathing = true;
 		
@@ -995,7 +991,7 @@ methodmap PetMerasmus < BaseNPC
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
 		SDKHook(pet.index, SDKHook_Think, PetMerasmusThink);
 		
-		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_sniper.mdl");
+		//pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_sniper.mdl");
 		
 		return view_as<PetMerasmus>(pet);
 	}
@@ -1018,7 +1014,7 @@ methodmap PetSkeletonKing < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.Pathing = true;
 		
 		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
@@ -1051,7 +1047,7 @@ methodmap PetMiniMe < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.Pathing = true;
 		
 		SDKHook(pet.index, SDKHook_Think, Blend9Think);
@@ -1102,7 +1098,7 @@ methodmap PetYeti < BaseNPC
 		brain.SetFloat("OutOfRange", 300.0);
 		//////////
 		
-		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.Pathing = true;
 		
 		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
@@ -1110,7 +1106,7 @@ methodmap PetYeti < BaseNPC
 		SDKHook(pet.index, SDKHook_Think, PetYetiThink);
 				
 		pet.EquipItem("head", "models/player/items/taunts/yeti/yeti.mdl");
-		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_heavy.mdl");
+		//pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_heavy.mdl");
 		
 		return view_as<PetYeti>(pet);
 	}
@@ -1136,13 +1132,13 @@ methodmap PetDeskBoy < BaseNPC
 		int iSequenceMove = SDKCall(g_hLookupSequence, pet.GetStudioHdr(), "taunt_russian");
 		SDKCall(g_hResetSequence, pet.index, iSequenceMove);
 		
-		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 150.0, 0.5, 1.0);
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.Pathing = true;
 		
 		//SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
 		SDKHook(pet.index, SDKHook_Think, DeskBoyThink);
 		
-		pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_engineer.mdl");
+		//pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_engineer.mdl");
 		
 		return view_as<PetDeskBoy>(pet);
 	}
@@ -1573,58 +1569,6 @@ public void PetTankThink(int iEntity)
 			}
 		}
 	}
-}
-
-public Action Listener_Voice(int client, char[] command, int args) 
-{
-	char arguments[4];
-	GetCmdArgString(arguments, sizeof(arguments));
-		
-	if (StrEqual(arguments, "0 3"))
-	{
-		bool bFound = false;
-		
-		int iEntity = -1;
-		while((iEntity = FindEntityByClassname(iEntity, "base_boss")) != -1)
-		{
-			int iOwner = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-			if(iOwner > 0 && iOwner <= MaxClients && iOwner == client && PF_Exists(iEntity))
-			{
-				bFound = true;
-				break;
-			}
-		}
-		
-		if(!bFound)
-			return Plugin_Continue;
-		
-		BaseNPC npc = view_as<BaseNPC>(iEntity);
-		if (!npc.DoingSpecial)
-		{
-			float StartOrigin[3], Angles[3], vecPos[3];
-			GetClientEyeAngles(client, Angles);
-			GetClientEyePosition(client, StartOrigin);
-			
-			Handle TraceRay = TR_TraceRayFilterEx(StartOrigin, Angles, (CONTENTS_SOLID|CONTENTS_WINDOW|CONTENTS_GRATE), RayType_Infinite, TraceRayProp);
-			if (TR_DidHit(TraceRay))
-				TR_GetEndPosition(vecPos, TraceRay);
-				
-			delete TraceRay;
-			
-			float no;
-			if(PF_IsPathToVectorPossible(npc.index, vecPos, no))
-			{
-				npc.SetSpecialPos(vecPos);
-				PF_SetGoalVector(npc.index, vecPos);
-				npc.Pathing = true;
-				npc.DoingSpecial = true;
-				
-				CreateParticle("ping_circle", vecPos, NULL_VECTOR);
-			}
-		}
-	}
-
-	return Plugin_Continue;
 }
 
 public bool TraceRayProp(int entityhit, int mask, any entity)
@@ -2396,8 +2340,6 @@ public void OnPluginStart()
 	RegAdminCmd("sm_pets", Command_PetMenu, 0);
 	RegAdminCmd("sm_pests", Command_PetMenu, 0);
 	
-	AddCommandListener(Listener_Voice, "voicemenu");
-	
 	HookEvent("player_team", Event_PlayerTeam);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
@@ -2613,8 +2555,6 @@ public void OnPluginStart()
 	g_hGetHullHeight       = DHookCreateEx(hConf, "IBody::GetHullHeight",            HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetHullHeight);
 	g_hGetStandHullHeight  = DHookCreateEx(hConf, "IBody::GetStandHullHeight",       HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetStandHullHeight);
 	g_hGetCrouchHullHeight = DHookCreateEx(hConf, "IBody::GetCrouchHullHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, IBody_GetCrouchHullHeight);
-	g_hGetHullMins         = DHookCreateEx(hConf, "IBody::GetHullMins",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMins);
-	g_hGetHullMaxs         = DHookCreateEx(hConf, "IBody::GetHullMaxs",              HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, IBody_GetHullMaxs);
 	g_hStartActivity       = DHookCreateEx(hConf, "IBody::StartActivity",            HookType_Raw, ReturnType_Bool,      ThisPointer_Address, IBody_StartActivity);
 	
 	delete hConf;
@@ -2896,6 +2836,50 @@ public void PluginBot_PathFail(int bot_entidx, Address path, MoveToFailureType f
 {
 	PrintToServer(">>>>>>>>>> PluginBot_PathFail %i path 0x%X reason %i", bot_entidx, path, fail);
 }
+
+public void PluginBot_OnContact(int bot_entidx, int other)
+{
+	PrintToServer(">>>>>>>>>> PluginBot_OnContact %i other %i", bot_entidx, other);
+}
+
+public void PluginBot_OnActorEmoted(int bot_entidx, int who, int concept)
+{
+	//PrintToServer(">>>>>>>>>> PluginBot_OnActorEmoted %i who %i concept %i", bot_entidx, who, concept);
+	
+	//"Move Up!"
+	if (concept == 14 )
+	{
+		int iOwner = GetEntPropEnt(bot_entidx, Prop_Send, "m_hOwnerEntity");
+		if(iOwner != who) //You are not my dad!
+			return;
+		
+		BaseNPC npc = view_as<BaseNPC>(bot_entidx);
+		if (npc.DoingSpecial) //Already doing special
+			return;
+		
+		float StartOrigin[3], Angles[3], vecPos[3];
+		GetClientEyeAngles(who, Angles);
+		GetClientEyePosition(who, StartOrigin);
+		
+		Handle TraceRay = TR_TraceRayFilterEx(StartOrigin, Angles, (CONTENTS_SOLID|CONTENTS_WINDOW|CONTENTS_GRATE), RayType_Infinite, TraceRayProp);
+		if (TR_DidHit(TraceRay))
+			TR_GetEndPosition(vecPos, TraceRay);
+			
+		delete TraceRay;
+		
+		float no;
+		if(PF_IsPathToVectorPossible(bot_entidx, vecPos, no))
+		{
+			npc.SetSpecialPos(vecPos);
+			PF_SetGoalVector(bot_entidx, vecPos);
+			npc.Pathing = true;
+			npc.DoingSpecial = true;
+			
+			CreateParticle("ping_circle", vecPos, NULL_VECTOR);
+		}
+	}
+}
+
 
 stock void CreateParticle(char[] particle, float pos[3], float ang[3])
 {
