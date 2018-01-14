@@ -1338,10 +1338,43 @@ public void PetMerasmusThink(int iEntity)
 			CreateParticle("merasmus_shoot", origin, angles);
 			
 			float flVelocity[3];
-			MakeVectorFromPoints(flOrigin, SpecialPos, flVelocity);
-			NormalizeVector(flVelocity, flVelocity);
-			ScaleVector(flVelocity, 500.0);
-			flVelocity[2] = 500.0;
+			
+			float gravity = FindConVar("sv_gravity").FloatValue;
+			
+			float flActualHeight = SpecialPos[2] - flOrigin[2];
+			float height = flActualHeight;
+			if ( height < 16 )
+			{
+				height = 16.0;
+			}
+			
+			float additionalHeight = 0.0;
+			if ( height < 32 )
+			{
+				additionalHeight = 16.0;
+			}
+			
+			height += additionalHeight;
+			
+			float speed = SquareRoot( 2 * gravity * height );
+			float time = speed / gravity;
+		
+			time += SquareRoot( (2 * additionalHeight) / gravity );
+			
+			SubtractVectors( SpecialPos, flOrigin, flVelocity );
+			flVelocity[0] /= time;
+			flVelocity[1] /= time;
+			flVelocity[2] /= time;
+		
+			flVelocity[2] = speed;
+			
+			// Don't jump too far/fast.
+			float flJumpSpeed = GetVectorLength(flVelocity);
+			float flMaxSpeed = 2000.0;
+			if ( flJumpSpeed > flMaxSpeed )
+			{
+				ScaleVector(flVelocity, flMaxSpeed / flJumpSpeed);
+			}
 			
 			if (GetRandomInt(1, 10) == 1)
 				EmitGameSoundToAll("Halloween.MerasmusGrenadeThrowRare", iEntity);
@@ -1349,7 +1382,7 @@ public void PetMerasmusThink(int iEntity)
 				EmitGameSoundToAll("Halloween.MerasmusGrenadeThrow", iEntity);
 			
 			MerasmusBomb(client, origin, flVelocity, 100.0);
-			npc.SpecialTime = GetGameTime() + 3.0;
+			npc.SpecialTime = GetGameTime() + 2.0;
 		}
 		else
 			npc.DoingSpecial = false;
