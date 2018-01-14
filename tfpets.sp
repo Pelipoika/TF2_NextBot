@@ -1338,8 +1338,7 @@ public void PetMerasmusThink(int iEntity)
 			CreateParticle("merasmus_shoot", origin, angles);
 			
 			float flVelocity[3];
-			GetClientEyeAngles(client, flVelocity);
-			GetAngleVectors(flVelocity, flVelocity, NULL_VECTOR, NULL_VECTOR);
+			MakeVectorFromPoints(flOrigin, SpecialPos, flVelocity);
 			NormalizeVector(flVelocity, flVelocity);
 			ScaleVector(flVelocity, 500.0);
 			flVelocity[2] = 500.0;
