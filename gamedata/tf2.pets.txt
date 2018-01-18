@@ -183,7 +183,7 @@
 			
 			"CTFWeaponBaseGun::GetWeaponID" //(int)
 			{		
-				"windows"	"371"		
+				"windows"	"372"		
 				"linux"		"378"
 			}
 			"CTFWeaponBaseGun::HasAmmo" //()
@@ -496,6 +496,11 @@
 			{
 				"windows"	"289"
 				"linux"		"290"
+			}
+			"CBaseCombatCharacter::GetTimeSinceLastInjury" //(int team)
+			{
+				"windows"	"282"
+				"linux"		"283"
 			}
 		}
 	}

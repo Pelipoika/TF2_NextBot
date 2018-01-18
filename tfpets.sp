@@ -1144,6 +1144,32 @@ methodmap PetDeskBoy < BaseNPC
 	}
 }
 
+methodmap PetBuster < BaseNPC
+{
+	public PetBuster(int client, float vecPos[3], float vecAng[3])
+	{
+		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/bots/demo/bot_sentry_buster.mdl", "0.5");
+		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
+		
+		Dynamic brain = pet.GetBrainInterface();
+		//REQUIRED
+		brain.SetString("MoveAnim", "Run_MELEE");
+		brain.SetFloat("MoveSpeed", 150.0);
+		brain.SetString("IdleAnim", "Stand_MELEE");
+		brain.SetFloat("OutOfRange", 300.0);
+		//////////
+		
+		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
+		pet.Pathing = true;
+		
+		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
+		SDKHook(pet.index, SDKHook_Think, Blend9Think);
+		SDKHook(pet.index, SDKHook_Think, SentryBusterThink);
+
+		return view_as<PetBuster>(pet);
+	}
+}
+
 
 //Stop when near owner
 //Adjust speed near owner
@@ -1261,6 +1287,97 @@ public void PetYetiThink(int iEntity)
 					layer.KillMe();
 					npc.DoingSpecial = false;
 					PF_SetGoalEntity(npc.index, client);
+				}
+			}
+		}
+	}
+	else
+	{
+		if(flDistance <= (flOutOfRange / 2))
+		{
+			if(npc.Pathing)
+			{
+				npc.Pathing = false;
+			}
+		}
+		else
+		{
+			if(!npc.Pathing)
+			{
+				npc.Pathing = true;
+			}
+		}
+	}
+}
+
+public void SentryBusterThink(int iEntity)
+{
+	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+	if(client <= 0 || client > MaxClients || !IsClientInGame(client))
+	{
+		AcceptEntityInput(iEntity, "Kill");
+		return;
+	}
+	
+	//taunt_demo_nuke_shroomcloud
+	PetYeti npc = view_as<PetYeti>(iEntity);
+	npc.Update();
+	
+	float flOrigin[3], flAbsAngles[3];
+	GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin",   flOrigin);
+	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", flAbsAngles);
+	
+	float flMoveSpeed  = npc.MoveSpeed;
+	float flOutOfRange = npc.OutOfRange;
+	
+	float flCPos[3]; GetClientAbsOrigin(client, flCPos);
+	float flDistance = GetVectorDistance(flCPos, flOrigin);
+	
+	//We don't wanna fall too behind.
+	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
+
+	//Stomp
+	if(npc.DoingSpecial)
+	{
+		float SpecialPos[3];
+		npc.GetSpecialPos(SpecialPos);
+		
+		if(GetVectorDistance(SpecialPos, flOrigin) <= 20.0 || !npc.Pathing)
+		{
+			if(npc.Pathing)
+			{
+				EmitGameSoundToAll("MVM.SentryBusterSpin",  npc.index);
+				StopSound(npc.index, SNDCHAN_STATIC, "mvm/sentrybuster/mvm_sentrybuster_loop.wav");
+				
+				npc.PlayGesture("sentry_buster_preExplode", false);
+				npc.SpecialTime = GetGameTime() + 5.3;
+			}
+			
+			npc.Pathing = false;
+			
+			float SpecialTime = npc.SpecialTime - GetGameTime();
+			if(SpecialTime <= 0.0)
+			{
+				npc.SpecialTime = GetGameTime() + 10.0; //Don't repeat
+			}
+			
+			//Needed because sometimes if i'm just calling !IsPlayingGesture it might miss it due to autokill.
+			int iSequence = npc.LookupSequence("sentry_buster_preExplode");
+			int iLayer = FindGestureLayer(npc.index, iSequence);
+			if(iLayer != -1)
+			{
+				CBaseAnimatingOverlay overlay = CBaseAnimatingOverlay(npc.index);
+				CAnimationLayer layer = overlay.GetLayer(iLayer);
+				
+				float flCycle = layer.Get(m_flCycle);
+				if(flCycle >= 1.0)
+				{
+					layer.KillMe();
+					npc.DoingSpecial = false;
+					PF_SetGoalEntity(npc.index, client);
+					
+					StopSound(npc.index, SNDCHAN_STATIC, "mvm/sentrybuster/mvm_sentrybuster_loop.wav");
+					Explode(client, flOrigin, 200.0, 100.0, "eotl_pyro_pool_explosion", "MVM.SentryBusterExplode");
 				}
 			}
 		}
@@ -2201,6 +2318,7 @@ public Action Command_PetMenu(int client, int argc)
 	menu.AddItem("6", "Mini-Me");
 	menu.AddItem("7", "Yeti");
 	menu.AddItem("8", "Deskboye");
+	menu.AddItem("9", "Sentry Buster");
 	menu.Display(client, MENU_TIME_FOREVER);
 	
 	return Plugin_Handled;
@@ -2299,6 +2417,11 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 				PetDeskBoy npc = PetDeskBoy(param1, flPos, flAng);
 				npc.Update();
 			}
+			case 9:
+			{
+				PetBuster npc = PetBuster(param1, flPos, flAng);
+				npc.Update();
+			}
 		}
 	}
 	else if(action == MenuAction_End)
@@ -2365,6 +2488,19 @@ public void OnMapStart()
 	PrecacheModel("models/bots/tw2/boss_bot/tank_track_r.mdl");
 	PrecacheModel("models/bots/boss_bot/tank_track_L.mdl");
 	PrecacheModel("models/bots/boss_bot/tank_track_R.mdl");
+	
+	PrecacheModel("models/bots/demo/bot_sentry_buster.mdl");
+	
+	//Absolutely fucking retarded.
+	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_explode.wav");
+	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_spin.wav");
+	PrecacheSound("mvm/sentrybuster/mvm_sentrybuster_loop.wav");
+	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_intro.wav");
+	
+	PrecacheScriptSound("MVM.SentryBusterExplode");
+	PrecacheScriptSound("MVM.SentryBusterSpin");
+	PrecacheScriptSound("MVM.SentryBusterLoop");
+	PrecacheScriptSound("MVM.SentryBusterIntro");
 }
 
 public void OnPluginStart()
