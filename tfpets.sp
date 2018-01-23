@@ -3112,7 +3112,7 @@ stock void MerasmusBomb(int client, float flPos[3], float flVelocity[3], float f
 	SetEntPropFloat(bomb, Prop_Data, "m_flDamage", flDamage);
 	SetEntPropFloat(bomb, Prop_Data, "m_flModelScale", 1.0);
 	SetEntPropFloat(bomb, Prop_Send, "m_flModelScale", 1.0);
-	SetEntDataFloat(bomb, 1288, GetGameTime() + 2.0);	//Fuse time
+	SetEntDataFloat(bomb, FindSendPropInfo("CTFWeaponBaseMerasmusGrenade", "m_hThrower") + 48, GetGameTime() + 2.0);	//Fuse time
 	SetEntProp(bomb, Prop_Send, "m_CollisionGroup", 24);
 	SetEntProp(bomb, Prop_Data, "m_CollisionGroup", 24);
 }
