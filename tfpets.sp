@@ -1839,7 +1839,9 @@ public void PetEngineerThink(int iEntity)
 					DispatchKeyValue(ammo, "modelscale", "0.65");
 					DispatchSpawn(ammo);
 					
-					SetEntData(ammo, (TF_AMMO_METAL * 4) + (311 * 4), 100, _, true);
+					//SetEntData(ammo, (TF_AMMO_METAL * 4) + (311 * 4), 100, _, true);
+					SetEntData(ammo, (TF_AMMO_METAL * 4) + (FindSendPropInfo("CTFAmmoPack", "m_vOriginalSpawnAngles", Prop_Data) + 20), 100, _, true);
+					
 					SetEntProp(ammo, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
 					
 					TeleportEntity(ammo, NULL_VECTOR, NULL_VECTOR, vecForward);
