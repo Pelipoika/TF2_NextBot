@@ -22,20 +22,6 @@
 				}
 			}
 			
-			"GameRules"
-			{
-				"windows"
-				{
-					"signature" "CreateGameRulesObject" 
-					"read" "5"
-				}
-				"linux"
-				{
-					"signature" "g_pGameRules"
-				}
-				"read" "0"
-			}
-			
 			"navarea_count"
 			{
 				"windows"
@@ -54,8 +40,14 @@
 		{
 			"nav_update_lighting"	//nav_update_lighting(CCommand const&) | STR "Computed lighting for %d/%d areas\n"
 			{
-				"windows"	"\x55\x8B\xEC\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x8B\x45\x08\x57"
+				"windows"	"\x56\x57\x8B\xF9\x33\xF6\x39\xB7\x70\x03\x00\x00"
 				"linux"		"@_ZL19nav_update_lightingRK8CCommand"
+			}
+			
+			"CTFBotHintEngineerNest::IsStaleNest"
+			{
+				"windows"	"\x55\x8B\xEC\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x8B\x45\x08\x57"
+				"linux"		"@_ZNK22CTFBotHintEngineerNest11IsStaleNestEv"
 			}
 			
 			"GetAnimationEvent_"
@@ -173,18 +165,6 @@
 			{
 				"library"	"server"
 				"linux"		"@g_MannVsMachineUpgrades"
-			}
-			
-			//Get g_pGameRules pointer
-			"CreateGameRulesObject"	//<- "InitGameRules: g"
-			{
-				"library"    "server"
-				"windows"   "\x55\x8B\xEC\x8B\x0D\x2A\x2A\x2A\x2A\x85\xC9\x74\x2A\x8B\x01\x6A\x01"
-			}
-			"g_pGameRules"	//g_pGameRules
-			{
-				"library"    "server"
-				"linux"        "@g_pGameRules"
 			}
 		}
 		"Offsets"
