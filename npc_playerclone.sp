@@ -46,8 +46,8 @@ stock void SpawnClone(int client)
 {
 	float pos[3]; GetClientAbsOrigin(client, pos);
 	float ang[3]; GetClientAbsAngles(client, ang);
-	float flDistance = GetVectorDistance(g_vecLastClonePos[client], pos, true);
 	
+	float flDistance = GetVectorDistance(g_vecLastClonePos[client], pos, true);
 	if(flDistance < 500)
 		return;
 	
@@ -157,6 +157,8 @@ public void SetupAnimations(int iEntity)
 	
 	//Done
 	SetEntityRenderMode(iEntity, RENDER_NORMAL);
+	
+	//Play anims a bit so they get played to their set values
 	SDKCall(g_hStudioFrameAdvance, iEntity);
 	
 	SDKHook(iEntity, SDKHook_Think, GroundEntChanged);
