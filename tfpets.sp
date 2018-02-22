@@ -1840,7 +1840,8 @@ public void PetEngineerThink(int iEntity)
 					DispatchSpawn(ammo);
 					
 					//SetEntData(ammo, (TF_AMMO_METAL * 4) + (311 * 4), 100, _, true);
-					SetEntData(ammo, (TF_AMMO_METAL * 4) + (FindSendPropInfo("CTFAmmoPack", "m_vOriginalSpawnAngles", Prop_Data) + 20), 100, _, true);
+					int Offset = ((TF_AMMO_METAL * 4) + (FindSendPropInfo("CTFAmmoPack", "m_vOriginalSpawnAngles")) + 20);
+					SetEntData(ammo, Offset, 100, _, true);
 					
 					SetEntProp(ammo, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
 					
@@ -2310,7 +2311,7 @@ public Action Command_PetMenu(int client, int argc)
 		return Plugin_Handled;
 	
 	Menu menu = new Menu(PetSelectHandler);
-	menu.SetTitle("Pets");
+	menu.SetTitle("Pets - \"Move Up!\" for special attack\n");
 	menu.AddItem("0", "- Remove Pet");
 	menu.AddItem("1", "Tank");
 	menu.AddItem("2", "Medic");
