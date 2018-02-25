@@ -498,8 +498,13 @@ methodmap BaseNPC
 		bool bStuck = SDKCall(g_hIsStuck, this.GetLocomotionInterface());
 		if(bStuck)
 		{
+			int iOwner = GetEntPropEnt(this.index, Prop_Send, "m_hOwnerEntity");
+			
+			this.DoingSpecial = false;
+			PF_SetGoalEntity(this.index, iOwner);
+		
 			SDKCall(g_hClearStuckStatus, this.GetLocomotionInterface(), "Un-Stuck");
-			TeleportEntity(this.index, WorldSpaceCenter(GetEntPropEnt(this.index, Prop_Send, "m_hOwnerEntity")), NULL_VECTOR, NULL_VECTOR);
+			TeleportEntity(this.index, WorldSpaceCenter(iOwner), NULL_VECTOR, NULL_VECTOR);
 		}
 	}	
 	public void GetVelocity(float vecOut[3])
@@ -1840,7 +1845,7 @@ public void PetEngineerThink(int iEntity)
 					DispatchSpawn(ammo);
 					
 					//SetEntData(ammo, (TF_AMMO_METAL * 4) + (311 * 4), 100, _, true);
-					int Offset = ((TF_AMMO_METAL * 4) + (FindSendPropInfo("CTFAmmoPack", "m_vOriginalSpawnAngles")) + 20);
+					int Offset = ((TF_AMMO_METAL * 4) + (FindSendPropInfo("CTFAmmoPack", "m_vOriginalSpawnAngles") + 20));
 					SetEntData(ammo, Offset, 100, _, true);
 					
 					SetEntProp(ammo, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
