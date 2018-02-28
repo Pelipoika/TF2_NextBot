@@ -1351,7 +1351,8 @@ public void SentryBusterThink(int iEntity)
 		{
 			if(npc.Pathing)
 			{
-				EmitGameSoundToAll("MVM.SentryBusterSpin",  npc.index);
+				EmitSoundToAll(")mvm/sentrybuster/mvm_sentrybuster_spin.wav", npc.index, _, _, _, 0.30);
+				
 				StopSound(npc.index, SNDCHAN_STATIC, "mvm/sentrybuster/mvm_sentrybuster_loop.wav");
 				
 				npc.PlayGesture("sentry_buster_preExplode", false);
@@ -1382,7 +1383,10 @@ public void SentryBusterThink(int iEntity)
 					PF_SetGoalEntity(npc.index, client);
 					
 					StopSound(npc.index, SNDCHAN_STATIC, "mvm/sentrybuster/mvm_sentrybuster_loop.wav");
-					Explode(client, flOrigin, 200.0, 100.0, "eotl_pyro_pool_explosion", "MVM.SentryBusterExplode");
+					
+					EmitSoundToAll(")mvm/sentrybuster/mvm_sentrybuster_explode.wav", npc.index, _, _, _, 0.30);
+					
+					Explode(client, flOrigin, 200.0, 100.0, "eotl_pyro_pool_explosion", "");
 				}
 			}
 		}
@@ -2499,16 +2503,10 @@ public void OnMapStart()
 	
 	PrecacheModel("models/bots/demo/bot_sentry_buster.mdl");
 	
-	//Absolutely fucking retarded.
 	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_explode.wav");
 	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_spin.wav");
 	PrecacheSound("mvm/sentrybuster/mvm_sentrybuster_loop.wav");
 	PrecacheSound(")mvm/sentrybuster/mvm_sentrybuster_intro.wav");
-	
-	PrecacheScriptSound("MVM.SentryBusterExplode");
-	PrecacheScriptSound("MVM.SentryBusterSpin");
-	PrecacheScriptSound("MVM.SentryBusterLoop");
-	PrecacheScriptSound("MVM.SentryBusterIntro");
 }
 
 public void OnPluginStart()
