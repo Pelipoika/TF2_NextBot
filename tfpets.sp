@@ -1848,8 +1848,7 @@ public void PetEngineerThink(int iEntity)
 					DispatchKeyValue(ammo, "modelscale", "0.65");
 					DispatchSpawn(ammo);
 					
-					//SetEntData(ammo, (TF_AMMO_METAL * 4) + (311 * 4), 100, _, true);
-					int Offset = ((TF_AMMO_METAL * 4) + (FindSendPropInfo("CTFAmmoPack", "m_vOriginalSpawnAngles") + 20));
+					int Offset = ((TF_AMMO_METAL * 4) + (FindDataMapInfo(ammo, "m_vOriginalSpawnAngles") + 20));	//1256				
 					SetEntData(ammo, Offset, 100, _, true);
 					
 					SetEntProp(ammo, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
@@ -3009,6 +3008,10 @@ public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float di
 public void PluginBot_PathFail(int bot_entidx, Address path, MoveToFailureType fail)
 {
 	PrintToServer(">>>>>>>>>> PluginBot_PathFail %i path 0x%X reason %i", bot_entidx, path, fail);
+	
+	int iOwner = GetEntPropEnt(bot_entidx, Prop_Send, "m_hOwnerEntity");
+	view_as<BaseNPC>(bot_entidx).DoingSpecial = false;
+	PF_SetGoalEntity(bot_entidx, iOwner);
 }
 
 public void PluginBot_OnContact(int bot_entidx, int other)
