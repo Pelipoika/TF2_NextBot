@@ -101,9 +101,6 @@ Handle g_hGetHullHeight;
 Handle g_hGetStandHullHeight;
 Handle g_hGetCrouchHullHeight;
 
-//Sentry Buster
-//taunt_yeti
-
 public Plugin myinfo = 
 {
 	name = "[TF2] Advanced Pets", 
@@ -1351,7 +1348,7 @@ public void SentryBusterThink(int iEntity)
 		{
 			if(npc.Pathing)
 			{
-				EmitSoundToAll(")mvm/sentrybuster/mvm_sentrybuster_spin.wav", npc.index, _, _, _, 0.30);
+				EmitSoundToAll(")mvm/sentrybuster/mvm_sentrybuster_spin.wav", npc.index, _, _, _, 0.40);
 				
 				StopSound(npc.index, SNDCHAN_STATIC, "mvm/sentrybuster/mvm_sentrybuster_loop.wav");
 				
@@ -1384,7 +1381,7 @@ public void SentryBusterThink(int iEntity)
 					
 					StopSound(npc.index, SNDCHAN_STATIC, "mvm/sentrybuster/mvm_sentrybuster_loop.wav");
 					
-					EmitSoundToAll(")mvm/sentrybuster/mvm_sentrybuster_explode.wav", npc.index, _, _, _, 0.30);
+					EmitSoundToAll(")mvm/sentrybuster/mvm_sentrybuster_explode.wav", npc.index, _, _, _, 0.40);
 					
 					Explode(client, flOrigin, 200.0, 100.0, "eotl_pyro_pool_explosion", "");
 				}
