@@ -22,6 +22,7 @@
 				}
 			}
 			
+			//Used for getting TheNavAreas AND navarea_count
 			"navarea_count"
 			{
 				"windows"
@@ -42,24 +43,6 @@
 			{
 				"windows"	"\x55\x8B\xEC\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x8B\x45\x08\x57"
 				"linux"		"@_ZL19nav_update_lightingRK8CCommand"
-			}
-			
-			"CTFBotHintEngineerNest::IsStaleNest"
-			{
-				"windows"	"\x56\x57\x8B\xF9\x33\xF6\x39\xB7\x70\x03\x00\x00"
-				"linux"		"@_ZNK22CTFBotHintEngineerNest11IsStaleNestEv"
-			}
-			
-			//CTFBotHintSentrygun *CTFBotHintEngineerNest::GetSentryHint() const
-			"CTFBotHintEngineerNest::GetSentryHint"
-			{
-				"windows"	"\x8D\x81\x64\x03\x00\x00"
-				"linux"		"@_ZNK22CTFBotHintEngineerNest13GetSentryHintEv"
-			}
-			"CTFBotHintEngineerNest::GetTeleporterHint"
-			{
-				"windows"	"\x8D\x81\x78\x03\x00\x00\x50"
-				"linux"		"@_ZNK22CTFBotHintEngineerNest17GetTeleporterHintEv"
 			}
 			
 			"GetAnimationEvent_"
