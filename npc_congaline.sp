@@ -56,6 +56,10 @@ Handle g_hGetHullHeight;
 Handle g_hGetStandHullHeight;
 Handle g_hGetCrouchHullHeight;
 
+//NavAreas
+Address TheNavAreas;
+Address navarea_count;
+
 char s_cast[][] = 
 {
 	"models/player/scout.mdl",
@@ -89,6 +93,8 @@ methodmap BaseNPC
 		DispatchKeyValue(npc,       "modelscale", modelscale);
 		DispatchKeyValue(npc,       "health",     health);
 		DispatchSpawn(npc);
+		
+		AcceptEntityInput(npc, "DisableShadow");
 		
 		Address pNB =         SDKCall(g_hMyNextBotPointer,        npc);
 		Address pLocomotion = SDKCall(g_hGetLocomotionInterface,  pNB);
@@ -255,7 +261,6 @@ methodmap BaseNPC
 		PF_SetGoalEntity(this.index, iTarget);
 		
 		PF_EnableCallback(this.index, PFCB_Approach, PluginBot_Approach);
-		//PF_EnableCallback(this.index, PFCB_GetPathCost, PluginBot_PathCost);
 	}	
 	public void Approach(const float vecGoal[3])
 	{
@@ -342,9 +347,20 @@ methodmap CongaLeader < BaseNPC
 	{
 		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/player/engineer.mdl", "0.4");
 		
-		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetRandomInt(0, 1));
+		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetRandomInt(0, 1)); 
 		
 		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 1.0, 1.0);
+			
+		//Pick a random goal area
+		NavArea RandomArea = PickRandomArea();
+		
+		if(RandomArea != NavArea_Null)
+		{
+			float vecGoal[3]; RandomArea.GetCenter(vecGoal);
+			PF_SetGoalVector(pet.index, vecGoal);
+			PF_EnableCallback(pet.index, PFCB_OnMoveToSuccess, OnCongaMoveToSuccess);
+		}
+		
 		pet.Pathing = true;
 		
 		pet.SetAnimation("taunt_conga");
@@ -374,6 +390,36 @@ methodmap CongaMember < BaseNPC
 	}
 }
 
+public void OnCongaMoveToSuccess(int bot_entidx, Address path)
+{	
+	//Pick a random goal area
+	NavArea RandomArea = PickRandomArea();	
+	
+	if(RandomArea != NavArea_Null)
+	{
+		if(HasTFAttributes(RandomArea, BLUE_SPAWN_ROOM) || HasTFAttributes(RandomArea, RED_SPAWN_ROOM))
+		{
+			//PrintToChatAll("OnCongaMoveToSuccess; Picked bad goal, try again");
+			OnCongaMoveToSuccess(bot_entidx, path);
+			return;
+		}
+	
+		float vecGoal[3]; RandomArea.GetCenter(vecGoal);
+		
+		//PrintToChatAll("OnCongaMoveToSuccess; new goal %f %f %f", vecGoal[0],vecGoal[1],vecGoal[2]);
+		
+		PF_SetGoalVector(bot_entidx, vecGoal);
+	}
+}
+
+stock NavArea PickRandomArea()
+{
+	int iAreaCount = LoadFromAddress(navarea_count, NumberType_Int32);
+	
+	//Pick a random goal area
+	return view_as<NavArea>(LoadFromAddress(TheNavAreas + view_as<Address>(4 * GetRandomInt(0, iAreaCount - 1)), NumberType_Int32));
+}
+
 public void BasicPetThink(int iEntity)
 {
 	int client = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
@@ -396,7 +442,7 @@ public void BasicPetThink(int iEntity)
 	float flDistance = GetVectorDistance(flCPos, flOrigin);
 	
 	const float flDistanceLimit = 40.0;
-	const float flMoveSpeed = 10.0
+	const float flMoveSpeed = 20.0
 	
 	//We don't wanna fall too behind.
 	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flDistanceLimit) ? (flMoveSpeed * 3) : (flMoveSpeed));
@@ -428,7 +474,17 @@ public Action Command_CongaLine(int client, int argc)
 	//What are you.
 	if(!(client > 0 && client <= MaxClients && IsClientInGame(client)))
 		return Plugin_Handled;
+	
+	int iMemberCount = 10;
+	
+	if(argc > 0)
+	{
+		char strMemberCount[4];
+		GetCmdArg(1, strMemberCount, sizeof(strMemberCount));
 		
+		iMemberCount = StringToInt(strMemberCount);
+	}
+	
 	float wsc[3]; wsc = WorldSpaceCenter(client);
 	
 	CongaMember leader = view_as<CongaMember>(CongaLeader(client, wsc, NULL_VECTOR));
@@ -437,7 +493,7 @@ public Action Command_CongaLine(int client, int argc)
 	//First congaer in the line.
 	CongaMember iLineLeader = leader;
 	
-	for (int i = 0; i <= 32; i++)
+	for (int i = 1; i <= iMemberCount; i++)
 	{	
 		leader = CongaMember(leader, wsc, NULL_VECTOR);
 		SetEntProp(leader.index, Prop_Send, "m_hEffectEntity", view_as<int>(iLineLeader));
@@ -638,6 +694,26 @@ public void OnPluginStart()
 	delete hConf;
 }
 
+public void OnMapStart()
+{
+	Handle hConf = LoadGameConfigFile("tf2.pets");
+
+	navarea_count = GameConfGetAddress(hConf, "navarea_count");
+	PrintToServer("[npc_congaline] Found \"navarea_count\" @ 0x%X", navarea_count);
+	
+	if(LoadFromAddress(navarea_count, NumberType_Int32) <= 0)
+	{
+		SetFailState("[npc_congaline] No nav mesh!");
+		return;
+	}
+	
+	//TheNavAreas is nicely above navarea_count
+	TheNavAreas = view_as<Address>(LoadFromAddress(navarea_count + view_as<Address>(0x4), NumberType_Int32));
+	PrintToServer("[npc_congaline] Found \"TheNavAreas\" @ 0x%X", TheNavAreas);
+	
+	delete hConf;
+}
+
 Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType returntype, ThisPointerType thistype, DHookCallback callback)
 {
 	int iOffset = GameConfGetOffset(gc, key);
@@ -669,36 +745,4 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 	BaseNPC npc = view_as<BaseNPC>(bot_entidx);
 	npc.Approach(vec);
 	npc.FaceTowards(vec);
-}
-
-public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
-{
-	float dist;
-	if (length != 0.0) 
-	{
-		dist = length;
-	}
-	else 
-	{
-		float vecCenter[3], vecFromCenter[3];
-		area.GetCenter(vecCenter);
-		from_area.GetCenter(vecFromCenter);
-		
-		float vecSubtracted[3]
-		SubtractVectors(vecCenter, vecFromCenter, vecSubtracted)
-		
-		dist = GetVectorLength(vecSubtracted);
-	}
-	
-	float multiplier = 1.0;
-	
-	int seed = RoundToFloor(GetGameTime() * 0.1) + 1;
-	seed *= area.GetID();
-	seed *= GetEntPropEnt(bot_entidx, Prop_Send, "m_hEffectEntity");
-	
-	multiplier += (Cosine(float(seed)) + 1.0) * 5.0;
-	
-	float cost = dist * multiplier;
-	
-	return from_area.GetCostSoFar() + cost;
 }
