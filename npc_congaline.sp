@@ -349,7 +349,7 @@ methodmap CongaLeader < BaseNPC
 		
 		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetRandomInt(0, 1)); 
 		
-		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 1.0, 1.0);
+		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 1.0, 2.0);
 			
 		//Pick a random goal area
 		NavArea RandomArea = PickRandomArea();
@@ -379,7 +379,7 @@ methodmap CongaMember < BaseNPC
 		
 		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetRandomInt(0, 1));
 		
-		pet.CreatePather(view_as<int>(leader), 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 1.0, 1.0);
+		pet.CreatePather(view_as<int>(leader), 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 1.0, 2.0);
 		pet.Pathing = true;
 		
 		pet.SetAnimation("taunt_conga");
@@ -442,7 +442,7 @@ public void BasicPetThink(int iEntity)
 	float flDistance = GetVectorDistance(flCPos, flOrigin);
 	
 	const float flDistanceLimit = 40.0;
-	const float flMoveSpeed = 20.0
+	const float flMoveSpeed = 15.0
 	
 	//We don't wanna fall too behind.
 	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flDistanceLimit) ? (flMoveSpeed * 3) : (flMoveSpeed));
@@ -511,6 +511,7 @@ public Action Command_CongaStop(int client, int argc)
 	int pet = -1;
 	while((pet = FindEntityByClassname(pet, "base_boss")) != -1)
 	{
+		if(PF_Exists(pet)) PF_Destroy(pet);
 		AcceptEntityInput(pet, "Kill");
 	}
 	
@@ -727,7 +728,7 @@ Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType 
 }
 
 public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)     { DHookSetReturnVector(hReturn, view_as<float>({0.0, 0.0, 1.0})); return MRES_Supercede; }
-public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 18.0);	return MRES_Supercede; }
+public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 32.0);	return MRES_Supercede; }
 public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 1700.0); return MRES_Supercede; }
 public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturn(hReturn, false);  return MRES_Supercede; }
