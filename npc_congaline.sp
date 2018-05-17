@@ -350,16 +350,11 @@ methodmap CongaLeader < BaseNPC
 		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetRandomInt(0, 1)); 
 		
 		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 1.0, 2.0);
-			
-		//Pick a random goal area
-		NavArea RandomArea = PickRandomArea();
 		
-		if(RandomArea != NavArea_Null)
-		{
-			float vecGoal[3]; RandomArea.GetCenter(vecGoal);
-			PF_SetGoalVector(pet.index, vecGoal);
-			PF_EnableCallback(pet.index, PFCB_OnMoveToSuccess, OnCongaMoveToSuccess);
-		}
+		OnCongaMoveToSuccess(pet.index, Address_Null);
+		
+		PF_EnableCallback(pet.index, PFCB_OnMoveToSuccess, OnCongaMoveToSuccess);
+		PF_EnableCallback(pet.index, PFCB_OnMoveToFailure, OnCongaMoveToFailure);
 		
 		pet.Pathing = true;
 		
@@ -397,7 +392,9 @@ public void OnCongaMoveToSuccess(int bot_entidx, Address path)
 	
 	if(RandomArea != NavArea_Null)
 	{
-		if(HasTFAttributes(RandomArea, BLUE_SPAWN_ROOM) || HasTFAttributes(RandomArea, RED_SPAWN_ROOM))
+		if(HasTFAttributes(RandomArea, BLUE_SPAWN_ROOM) 
+		|| HasTFAttributes(RandomArea, RED_SPAWN_ROOM) 
+		|| !HasTFAttributes(RandomArea, BOMB_DROP))
 		{
 			//PrintToChatAll("OnCongaMoveToSuccess; Picked bad goal, try again");
 			OnCongaMoveToSuccess(bot_entidx, path);
@@ -410,6 +407,17 @@ public void OnCongaMoveToSuccess(int bot_entidx, Address path)
 		
 		PF_SetGoalVector(bot_entidx, vecGoal);
 	}
+	else
+	{
+		//PrintToChatAll("OnCongaMoveToSuccess; RandomArea was NULL, try again");
+		OnCongaMoveToSuccess(bot_entidx, path);
+	}
+}
+
+public void OnCongaMoveToFailure(int bot_entidx, Address path, MoveToFailureType type)
+{
+	//PrintToChatAll("OnCongaMoveToFailure %i type %i", bot_entidx, type);
+	OnCongaMoveToSuccess(bot_entidx, path);
 }
 
 stock NavArea PickRandomArea()
