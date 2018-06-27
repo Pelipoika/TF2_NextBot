@@ -62,15 +62,18 @@ Address navarea_count;
 
 char s_cast[][] = 
 {
-	"models/player/scout.mdl",
-	"models/player/soldier.mdl",
-	"models/player/pyro.mdl",
-	"models/player/demo.mdl",
-	"models/player/heavy.mdl",
-	"models/player/engineer.mdl",
-	"models/player/medic.mdl",
-	"models/player/sniper.mdl",
-	"models/player/spy.mdl"
+	{"models/bots/skeleton_sniper/skeleton_sniper.mdl"},
+	{"models/bots/skeleton_sniper_boss/skeleton_sniper_boss.mdl"},
+	{"models/bots/engineer/bot_engineer.mdl"},
+	{"models/player/demo.mdl"},
+	{"models/player/engineer.mdl"},
+	{"models/player/heavy.mdl"},
+	{"models/player/medic.mdl"},
+	{"models/player/pyro.mdl"},
+	{"models/player/scout.mdl"},
+	{"models/player/sniper.mdl"},
+	{"models/player/soldier.mdl"},
+	{"models/player/spy.mdl"}
 }
 
 public Plugin myinfo = 
@@ -334,6 +337,8 @@ methodmap BaseNPC
 		SetVariantString("!activator");
 		AcceptEntityInput(item, "SetParent", this.index);
 		
+		AcceptEntityInput(item, "DisableShadow");
+		
 		SetVariantString(attachment);
 		AcceptEntityInput(item, "SetParentAttachmentMaintainOffset"); 
 		
@@ -347,18 +352,24 @@ methodmap CongaLeader < BaseNPC
 	{
 		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/player/engineer.mdl", "0.4");
 		
-		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetRandomInt(0, 1)); 
+		int skin = GetRandomInt(0, 1);
+		SetEntProp(pet.index, Prop_Send, "m_nSkin", skin); 
 		
 		pet.CreatePather(client, 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 1.0, 2.0);
 		
 		OnCongaMoveToSuccess(pet.index, Address_Null);
 		
 		PF_EnableCallback(pet.index, PFCB_OnMoveToSuccess, OnCongaMoveToSuccess);
+		PF_EnableCallback(pet.index, PFCB_PathFailed, OnCongaMoveToFailure);
 		PF_EnableCallback(pet.index, PFCB_OnMoveToFailure, OnCongaMoveToFailure);
 		
 		pet.Pathing = true;
 		
-		pet.SetAnimation("taunt_conga");
+		pet.EquipItem("head", "models/player/items/taunts/bumpercar/parts/bumpercar.mdl", _, skin);
+		pet.SetAnimation("kart_idle");
+		
+		//Kart
+		//kart_idle
 		
 		SetEntPropEnt(pet.index, Prop_Send, "m_hOwnerEntity", client);
 		
@@ -372,12 +383,14 @@ methodmap CongaMember < BaseNPC
 	{
 		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/player/engineer.mdl", "0.35");
 		
-		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetRandomInt(0, 1));
+		int skin = GetRandomInt(0, 1)
+		SetEntProp(pet.index, Prop_Send, "m_nSkin", skin);
 		
 		pet.CreatePather(view_as<int>(leader), 18.0, 18.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 1.0, 2.0);
 		pet.Pathing = true;
 		
-		pet.SetAnimation("taunt_conga");
+		pet.EquipItem("head", "models/player/items/taunts/bumpercar/parts/bumpercar.mdl", _, skin);
+		pet.SetAnimation("kart_idle");
 		
 		SetEntPropEnt(pet.index, Prop_Send, "m_hOwnerEntity", view_as<int>(leader));
 		
@@ -450,7 +463,8 @@ public void BasicPetThink(int iEntity)
 	float flDistance = GetVectorDistance(flCPos, flOrigin);
 	
 	const float flDistanceLimit = 40.0;
-	const float flMoveSpeed = 15.0
+	//const float flMoveSpeed = 15.0
+	const float flMoveSpeed = 30.0
 	
 	//We don't wanna fall too behind.
 	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flDistanceLimit) ? (flMoveSpeed * 3) : (flMoveSpeed));
