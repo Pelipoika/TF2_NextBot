@@ -495,7 +495,7 @@ char s_cast[][] =
 
 stock void SpawnPlayer(float vOrigin[3])
 {
-	BaseNPC npc = BaseNPC(vOrigin, NULL_VECTOR, s_cast[GetRandomInt(0, sizeof(s_cast) - 1)], "0.7", "5000", true);
+	BaseNPC npc = BaseNPC(vOrigin, NULL_VECTOR, s_cast[GetRandomInt(0, sizeof(s_cast) - 1)], "0.6", "5000", true);
 	
 	AcceptEntityInput(npc.index, "DisableShadow");	
 	

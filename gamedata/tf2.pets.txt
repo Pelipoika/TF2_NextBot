@@ -87,6 +87,11 @@
 				"windows"	"\x55\x8B\xEC\x56\x8B\x75\x08\x85\xF6\x75\x2A\x33\xC0\x5E\x5D\xC3\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x53"
 				"linux"		"@_Z14LookupSequenceP10CStudioHdrPKc"
 			}
+			"LookupActivity" //int ( CStudioHdr *pstudiohdr, const char *label ) "spew_bars_context" NOTE: NOT CBaseAnimating::LookupActivity
+			{
+				"windows"	"\x55\x8B\xEC\x57\x8B\x7D\x08\x85\xFF\x75\x2A\x33\xC0\x5F\x5D\xC3\x53"
+				"linux"		"@_Z14LookupActivityP10CStudioHdrPKc"
+			}
 			"CTFPlayer::GetMaxAmmo" //int (int AmmoType, int idk)	"mult_maxammo_primary"
 			{
 				"windows"	"\x55\x8B\xEC\x8B\x45\x0C\x56\x57\x8B\xF9\x83\xF8\xFF"
@@ -102,6 +107,16 @@
 				"windows"	"\x55\x8B\xEC\x8B\x01\x8D\x55\xD0\x83\xEC\x30\x8B\x80\x40\x03\x00\x00\x53\x52\xFF\x75\x08\xFF\xD0\xFF\x75\x10"
 				"linux"		"@_ZN14CBaseAnimating13GetAttachmentEiR6VectorR6QAngle"
 			}
+			"CBaseAnimating::FindBodygroupByName" //CBaseAnimating::FindBodygroupByName(this, "mini_sentry_light");
+			{
+				"windows"	"\x55\x8B\xEC\x56\x8B\xF1\x80\xBE\x41\x03\x00\x00\x00\x74\x2A\x83\xC8\xFF"
+				"linux"		"@_ZN14CBaseAnimating19FindBodygroupByNameEPKc"
+			}
+			"CBaseAnimating::SetBodygroup" //Right below ^
+			{
+				"windows"	"\x55\x8B\xEC\x51\x56\x8B\xF1\x57\x80\xBE\x41\x03\x00\x00\x00\x8B\x86\x74\x03\x00\x00"
+				"linux"		"@_ZN14CBaseAnimating12SetBodygroupEii"
+			}
 			"CBaseAnimatingOverlay::IsPlayingGesture" // (Activity activity)
 			{
 				"windows"	"\x55\x8B\xEC\xFF\x75\x08\xE8\x2A\x2A\x2A\x2A\x83\xF8\xFF"
@@ -112,10 +127,27 @@
 				"windows"	"\x55\x8B\xEC\x56\x6A\x00\xFF\x75\x08\x8B\xF1\xE8\x2A\x2A\x2A\x2A\x85\xC0\x78\x2A"
 				"linux"		"@_ZN21CBaseAnimatingOverlay18AddGestureSequenceEib"
 			}
+			
+			"CBaseAnimatingOverlay::AddGesture" //int AddGesture( Activity activity, bool autokill = true ); | STR: "CBaseAnimatingOverlay::AddGesture:  model %s missing activ"
+			{
+				"windows"	"\x55\x8B\xEC\x53\x8B\x5D\x08\x57\x53\x8B\xF9\xE8\x2A\x2A\x2A\x2A\x8B\xCF"
+				"linux"		"@_ZN21CBaseAnimatingOverlay10AddGestureE8Activityb"
+			}
+			"CBaseAnimatingOverlay::IsPlayingGesture" //bool IsPlayingGesture( Activity activity ); | Found above "spell_skeleton_goop_green"
+			{
+				"windows"	""
+				"linux"		"@_ZN21CBaseAnimatingOverlay16IsPlayingGestureE8Activity"
+			}
+			
 			"CBaseEntity::GetNextThink" //( const char *szContext ) <- "group_respawn_context"
 			{
 				"windows"	"\x55\x8B\xEC\x8B\x45\x08\x56\x8B\xF1\x85\xC0\x75\x2A\x8B\x86\xD0\x00\x00\x00\x89\x45\x08"
 				"linux"		"@_ZN11CBaseEntity12GetNextThinkEPKc"
+			}
+			"SelectWeightedSequence"
+			{
+				"windows"	"\x55\x8B\xEC\x56\x8B\x75\x08\x85\xF6\x75\x2A\x33\xC0\x5E\x5D\xC3\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x8B\xCE"
+				"linux"		"@_Z22SelectWeightedSequenceP10CStudioHdrii"
 			}
 			"GetItemSchema" //()
 			{
@@ -485,6 +517,16 @@
 			{
 				"windows"	"79"
 				"linux"		"80"
+			}
+			"IBody::GetActivity"
+			{
+				"windows"	"60"
+				"linux"		"61"
+			}
+			"IBody::IsActivity"
+			{
+				"windows"	"61"
+				"linux"		"62"
 			}
 			
 			"CBaseCombatCharacter::ShouldGib"
