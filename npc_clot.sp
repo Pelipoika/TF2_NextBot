@@ -19,8 +19,6 @@
 #define TF_WEAPON_PRIMARY_MODE		0
 #define TF_WEAPON_SECONDARY_MODE	1
 
-//int g_iPathLaserModelIndex = -1;
-
 //SDKCalls
 Handle g_hMyNextBotPointer;
 Handle g_hGetLocomotionInterface;
@@ -34,8 +32,7 @@ Handle g_hUpdatePosition;
 Handle g_hUpdateVisibilityStatus;
 Handle g_hRun;
 Handle g_hApproach;
-Handle g_hFaceTowards;
-Handle g_hResetSequence;
+Handle g_hFaceTowards
 Handle g_hGetVelocity;
 Handle g_hSetVelocity;
 Handle g_hStudioFrameAdvance;
@@ -49,7 +46,6 @@ Handle g_hGetGroundMotionVector;
 Handle g_hLookupPoseParameter;
 Handle g_hSetPoseParameter;
 Handle g_hGetPoseParameter;
-Handle g_hLookupSequence;
 Handle g_hLookupActivity;
 Handle g_hSDKWorldSpaceCenter;
 Handle g_hStudio_FindAttachment;
@@ -101,9 +97,9 @@ public Plugin myinfo =
 #define DEBUG_ANIMATION
 
 
-methodmap BaseNPC
+methodmap CBaseActor
 {
-	public BaseNPC(float vecPos[3], float vecAng[3], const char[] model, const char[] modelscale = "1.0", const char[] health = "100", bool bGroundNormal = true)
+	public CBaseActor(float vecPos[3], float vecAng[3], const char[] model, const char[] modelscale = "1.0", const char[] health = "100", bool bGroundNormal = true)
 	{
 		int npc = CreateEntityByName("base_boss");
 		DispatchKeyValueVector(npc, "origin",     vecPos);
@@ -142,7 +138,7 @@ methodmap BaseNPC
 		DHookEntity(g_hGetCurrencyValue, true, npc);
 		
 		//Animevents 
-		//DHookEntity(g_hHandleAnimEvent,  true, npc);
+		DHookEntity(g_hHandleAnimEvent,  true, npc);
 		
 		//trigger_hurts hurt and spawn doors open for us, etc.
 		SetEntityFlags(npc, FL_CLIENT|FL_FAKECLIENT|FL_NPC);
@@ -160,7 +156,7 @@ methodmap BaseNPC
 		SetEntPropVector(npc, Prop_Send, "m_vecMins", view_as<float>( { -26.0, -26.0, 0.0 } ));
 		SetEntPropVector(npc, Prop_Data, "m_vecMins", view_as<float>( { -26.0, -26.0, 0.0 } ));
 		
-		return view_as<BaseNPC>(npc);
+		return view_as<CBaseActor>(npc);
 	}
 	
 	property int index 
@@ -200,18 +196,17 @@ methodmap BaseNPC
 		public set(bool bOnOff) { char buff[8]; IntToString(bOnOff, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_bJumping", buff, true); }
 	}
 	
-	property float m_flJumpStartTime
-	{
-		public get()                 { return this.ExtractStringValueAsFloat("m_flJumpStartTime"); }
-		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flJumpStartTime", buff, true); }
-	}
-	
 	property bool m_bInAirWalk
 	{
 		public get()            { return !!this.ExtractStringValueAsInt("m_bInAirWalk"); }
 		public set(bool bOnOff) { char buff[8]; IntToString(bOnOff, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_bInAirWalk", buff, true); }
 	}
 	
+	property float m_flJumpStartTime
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("m_flJumpStartTime"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flJumpStartTime", buff, true); }
+	}
 	
 	public Address GetLocomotionInterface() { return SDKCall(g_hGetLocomotionInterface, SDKCall(g_hMyNextBotPointer, this.index)); }
 	public Address GetBodyInterface()       { return SDKCall(g_hGetBodyInterface,       SDKCall(g_hMyNextBotPointer, this.index)); }
@@ -252,14 +247,6 @@ methodmap BaseNPC
 			
 		return SDKCall(g_hLookupPoseParameter, this.index, pStudioHdr, szName);
 	}	
-	public int LookupSequence(const char[] anim)
-	{
-		Address pStudioHdr = this.GetModelPtr();
-		if(pStudioHdr == Address_Null)
-			return -1;
-			
-		return SDKCall(g_hLookupSequence, pStudioHdr, anim);
-	}
 	public int LookupActivity(const char[] activity)
 	{
 		Address pStudioHdr = this.GetModelPtr();
@@ -268,12 +255,6 @@ methodmap BaseNPC
 			
 		return SDKCall(g_hLookupActivity, pStudioHdr, activity);
 	}
-	public void SetAnimation(const char[] anim)
-	{
-		int iSequence = this.LookupSequence(anim);
-		if(iSequence >= 0)
-			SDKCall(g_hResetSequence, this.index, iSequence);
-	}	
 	public void AddGesture(const char[] anim)
 	{
 		int iSequence = this.LookupActivity(anim);
@@ -309,7 +290,7 @@ methodmap BaseNPC
 	public void Update()
 	{
 		#if defined DEBUG_UPDATE
-		PrintToServer("BaseNPC::Update()");
+		PrintToServer("CBaseActor::Update()");
 		#endif
 	
 		SDKCall(g_hRun,          this.GetLocomotionInterface());	
@@ -371,8 +352,45 @@ methodmap BaseNPC
 	public void DispatchAnimEvents() { SDKCall(g_hDispatchAnimEvents, this.index, this.index); }
 }
 
+methodmap CKnownEntity < CBaseActor
+{
+	// return the entity index of the known entity
+	public int GetEntity() {
+		return SDKCall(g_hGetKnownEntity, this);
+	}
+	
+	// could be seen or heard, but now the entity's position is known
+	public void UpdatePosition() {
+		SDKCall(g_hUpdatePosition, this);
+	}
+	
+	// refresh target memory
+	public void UpdateVisibilityStatus(bool visible) {
+		SDKCall(g_hUpdateVisibilityStatus, this.GetVisionInterface(), visible);
+	}
+}
 
-methodmap CClotBody < BaseNPC
+methodmap CVision < CKnownEntity
+{
+	// return the biggest threat to ourselves that we are aware of
+	public CKnownEntity GetPrimaryKnownThreat(bool onlyVisibleThreats = false) {
+		return SDKCall(g_hGetPrimaryKnownThreat, this.GetVisionInterface(), onlyVisibleThreats);
+	}
+	
+	// given an entity, return our known version of it (or NULL if we don't know of it)
+	public CKnownEntity GetKnown(int entity) {
+		return SDKCall(g_hGetKnown, this.GetVisionInterface(), entity);
+	}
+	
+	// Introduce a known entity into the system. Its position is assumed to be known
+	// and will be updated, and it is assumed to not yet have been seen by us, allowing for learning
+	// of known entities by being told about them, hearing them, etc.
+	public void AddKnownEntity(int entity) {
+		SDKCall(g_hAddKnownEntity, this.GetVisionInterface(), entity);
+	}
+}
+
+methodmap CClotBody < CBaseActor
 {	
 	property int m_iActivity
 	{
@@ -392,10 +410,10 @@ methodmap CClotBody < BaseNPC
 		public set(int iActivity) { char buff[8]; IntToString(iActivity, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_iPoseMoveY", buff, true); }
 	}
 
-	property float m_flNextAttack
+	property float m_flNextMeleeAttack
 	{
-		public get()                 { GetEntPropFloat(this.index, Prop_Send, "m_flNextAttack");             }
-		public set(float flNextTime) { SetEntPropFloat(this.index, Prop_Send, "m_flNextAttack", flNextTime); }
+		public get()                 { return this.ExtractStringValueAsFloat("m_flNextMeleeAttack"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextMeleeAttack", buff, true); }
 	}
 
 	//Begin an animation activity, return false if we cant do that right now.
@@ -522,7 +540,7 @@ methodmap Clot < CClotBody
 	
 	public Clot(int client, float vecPos[3], float vecAng[3], const char[] model, int team)
 	{
-		Clot npc = view_as<Clot>(BaseNPC(vecPos, vecAng, model, "1.0"));
+		Clot npc = view_as<Clot>(CBaseActor(vecPos, vecAng, model, "1.0"));
 		
 		int iActivity = npc.LookupActivity("ACT_MP_RUN_MELEE");
 		if(iActivity > 0)
@@ -596,11 +614,9 @@ public void ClotThink(int iNPC)
 			// if we're still jumping
 			if ( npc.m_bJumping )
 			{
-				if ( GetGameTime() - npc.m_flJumpStartTime > 0.3 )	{
+				if ( GetGameTime() - npc.m_flJumpStartTime > 0.3 ) {
 					idealActivity = npc.LookupActivity("ACT_MP_JUMP_FLOAT_melee");
-				}
-				else
-				{
+				} else {
 					idealActivity = npc.LookupActivity("ACT_MP_JUMP_START_melee");
 				}
 			}
@@ -635,6 +651,12 @@ public void ClotThink(int iNPC)
 		
 		npc.m_flNextTargetTime = GetGameTime() + 1000.0;
 	}
+	
+	if(npc.m_flNextMeleeAttack < GetGameTime())
+	{
+		npc.AddGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
+		npc.m_flNextMeleeAttack = GetGameTime() + 2.0;
+	}
 }
 
 
@@ -652,10 +674,8 @@ public Action Command_PetMenu(int client, int argc)
 	
 	char arg1[16];
 	GetCmdArg(1, arg1, sizeof(arg1));
-
-	int iTeam = StringToInt(arg1);
-
-	Clot(client, flPos, flAng, "models/vince_sf_proxy/zed_clot/zed_clot_01.mdl", iTeam);
+	
+	Clot(client, flPos, flAng, "models/vince_sf_proxy/zed_clot/zed_clot_01.mdl", StringToInt(arg1));
 	
 	return Plugin_Handled;
 }
@@ -679,12 +699,6 @@ public void OnPluginStart()
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseAnimating::StudioFrameAdvance");
 	if ((g_hStudioFrameAdvance = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::StudioFrameAdvance offset!"); 	
-
-	//CBaseAnimating::ResetSequence( int nSequence );
-	StartPrepSDKCall(SDKCall_Entity);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequence");
-	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
-	if ((g_hResetSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::ResetSequence signature!"); 
 
 	//CBaseAnimating::ResetSequenceInfo( );
 	StartPrepSDKCall(SDKCall_Entity);
@@ -840,7 +854,6 @@ public void OnPluginStart()
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
 	if((g_hSetBodyGroup = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::SetBodygroup");
 	
-	
 	//int SelectWeightedSequence( CStudioHdr *pstudiohdr, int activity, int curSequence );
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "SelectWeightedSequence");
@@ -849,7 +862,6 @@ public void OnPluginStart()
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);	//curSequence
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);	//return sequence
 	if((g_hSelectWeightedSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for SelectWeightedSequence");
-	
 	
 	//SetPoseParameter( CStudioHdr *pStudioHdr, int iParameter, float flValue );
 	StartPrepSDKCall(SDKCall_Entity);
@@ -877,18 +889,6 @@ public void OnPluginStart()
 	if((g_hAddGesture = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimatingOverlay::AddGesture");
 	
 	//-----------------------------------------------------------------------------
-	// Purpose: Looks up a sequence by sequence name first, then by activity name.
-	// Input  : label - The sequence name or activity name to look up.
-	// Output : Returns the sequence index of the matching sequence, or ACT_INVALID.
-	//-----------------------------------------------------------------------------
-	//int LookupSequence( CStudioHdr *pStudioHdr, const char *label );
-	StartPrepSDKCall(SDKCall_Static);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "LookupSequence");
-	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);	//pStudioHdr
-	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);		//label
-	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);	//return index
-	if((g_hLookupSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for LookupSequence");
-	
 	
 	//-----------------------------------------------------------------------------
 	// Purpose: Looks up an activity by name.
@@ -902,7 +902,6 @@ public void OnPluginStart()
 	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);		//label
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);	//return index
 	if((g_hLookupActivity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for LookupActivity");
-	
 	
 	
 	//-----------------------------------------------------------------------------
@@ -1069,7 +1068,7 @@ public MRESReturn IBody_GetHullMaxs(Address pThis, Handle hReturn, Handle hParam
 
 public void PluginBot_Approach(int bot_entidx, const float vec[3])
 {
-	BaseNPC npc = view_as<BaseNPC>(bot_entidx);
+	CBaseActor npc = view_as<CBaseActor>(bot_entidx);
 	npc.Approach(vec);	
 	npc.FaceTowards(vec);
 }
@@ -1132,73 +1131,13 @@ public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float di
 	GetEntPropVector(bot_entidx, Prop_Data, "m_vecOrigin", vecNPC);
 	
 	float flDistance = GetVectorDistance(vecNPC, vecPos);
-	if(flDistance > watchForClimbRange || view_as<Clot>(bot_entidx).IsStuck() || npc.m_bJumping)
+	if(flDistance > watchForClimbRange || npc.IsStuck() || npc.m_bJumping)
 		return;
 	
 	npc.JumpAcrossGap(vecPos, vecPos);
 	
 	npc.m_bJumping = true;
 	npc.m_flJumpStartTime = GetGameTime();
-
-	/*
-	bool bOnGround = (GetEntPropEnt(bot_entidx, Prop_Data, "m_hGroundEntity") != -1);
-	
-	if(bOnGround)
-	{
-		float gravity = GetEntPropFloat(bot_entidx, Prop_Data, "m_flGravity");
-		if(gravity <= 0.0)
-			gravity = FindConVar("sv_gravity").FloatValue;
-		
-		float vecJumpVel[3];
-		
-		// How fast does the headcrab need to travel to reach the position given gravity?
-		float flActualHeight = vecPos[2] - vecNPC[2];
-		float height = flActualHeight;
-		
-		float additionalHeight = 32.0;
-		
-		if ( height < 32 )
-		{
-			height = 32.0;
-		}
-		
-		height += additionalHeight;
-		
-		// NOTE: This equation here is from vf^2 = vi^2 + 2*a*d
-		float speed = SquareRoot( 2 * gravity * height );
-		float time = speed / gravity;
-	
-		// add in the time it takes to fall the additional height
-		// So the impact takes place on the downward slope at the original height
-		time += SquareRoot( (2 * additionalHeight) / gravity );
-		
-		// Scale the sideways velocity to get there at the right time
-		SubtractVectors( vecPos, vecNPC, vecJumpVel );
-		vecJumpVel[0] /= time;
-		vecJumpVel[1] /= time;
-		vecJumpVel[2] /= time;
-	
-		// Speed to offset gravity at the desired height.
-		vecJumpVel[2] = speed;
-		
-		// Don't jump too far/fast.
-		float flJumpSpeed = GetVectorLength(vecJumpVel);
-		float flMaxSpeed = 500.0;
-		
-		if ( flJumpSpeed > flMaxSpeed )
-		{
-			vecJumpVel[0] *= flMaxSpeed / flJumpSpeed;
-			vecJumpVel[1] *= flMaxSpeed / flJumpSpeed;
-			vecJumpVel[2] *= flMaxSpeed / flJumpSpeed;
-		}
-		
-		Clot npc = view_as<Clot>(bot_entidx);
-		npc.Jump();
-		//npc.SetVelocity(vecJumpVel);
-		
-		npc.m_bJumping = true;
-		npc.m_flJumpStartTime = GetGameTime();
-	}*/
 }
 
 enum //hitgroup_t
@@ -1218,22 +1157,19 @@ enum //hitgroup_t
 public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& damage, int& damagetype, int& ammotype, int hitbox, int hitgroup)
 {
 	//Friendly fire
-	if(view_as<BaseNPC>(attacker).GetTeam() == view_as<BaseNPC>(victim).GetTeam())
+	if(view_as<CBaseActor>(attacker).GetTeam() == view_as<CBaseActor>(victim).GetTeam())
 		return Plugin_Continue;
 		
 	//Valid attackers only.
 	if(attacker <= 0 || attacker > MaxClients)
 		return Plugin_Continue;
 	
-	AddThreat(victim, attacker);
 	
-	//Yes.
+	//Valid inflictors only.
 	if(inflictor <= 0 || inflictor > MaxClients)
 		return Plugin_Continue;
 	
-	AddThreat(victim, inflictor);
-	
-	PrintToServer("ClotDamaged victim %i attacker %i inflictor %i damage %.1f hitbox %i hitgroup %i", victim, attacker, inflictor, damage, hitbox, hitgroup);
+	//PrintToServer("ClotDamaged victim %i attacker %i inflictor %i damage %.1f hitbox %i hitgroup %i", victim, attacker, inflictor, damage, hitbox, hitgroup);
 	
 	Clot npc = view_as<Clot>(victim);
 	
@@ -1285,7 +1221,8 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	if(GetEntProp(npc.index, Prop_Data, "m_iHealth") <= damage)
 	{
 		AcceptEntityInput(npc.index, "BecomeRagdoll");
-	
+		
+		//TODO FIX ME
 		
 		Event npc_hurt = CreateEvent("npc_hurt");
 		npc_hurt.SetInt("entindex", npc.index);
@@ -1296,18 +1233,6 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 		npc_hurt.SetInt("crit", 0);
 		npc_hurt.SetInt("boss", 0);
 		npc_hurt.Fire();
-		/*
-		
-		Server event "npc_hurt", Tick 86812:
-		- "entindex" = "358"
-		- "health" = "100"
-		- "attacker_player" = "5"
-		- "weaponid" = "77"
-		- "damageamount" = "50"
-		- "crit" = "0"
-		- "boss" = "0"
-		
-		*/
 		
 		damage = 0.005;
 		
@@ -1315,29 +1240,6 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	}
 	
 	return Plugin_Continue;
-}
-
-public void AddThreat(int npc, int threat)
-{
-	if(!IsValidEntity(threat))
-		return;
-		
-	Address iVision = view_as<BaseNPC>(npc).GetVisionInterface();
-	if(iVision == Address_Null)
-		return;
-	
-	Address KnownEntity = SDKCall(g_hGetKnown, iVision, threat);		
-	if(KnownEntity == Address_Null)
-	{
-		SDKCall(g_hAddKnownEntity, iVision, threat);
-		KnownEntity = SDKCall(g_hGetKnown, iVision, threat);
-	}
-
-	if(KnownEntity != Address_Null)
-	{
-		SDKCall(g_hUpdateVisibilityStatus, KnownEntity, true);
-		SDKCall(g_hUpdatePosition, KnownEntity);
-	}
 }
 
 stock float[] WorldSpaceCenter(int entity)
