@@ -84,6 +84,36 @@ Handle g_hIsActivity;
 Address TheNavAreas;
 Address navarea_count;
 
+char g_DeathSounds[][] = {
+	"gorefast/gorefast_death_01.wav",
+	"gorefast/gorefast_death_02.wav",
+	"gorefast/gorefast_death_03.wav",
+	"gorefast/gorefast_death_04.wav",
+};
+
+char g_HurtSounds[][] = {
+	"gorefast/gorefast_hurt_01.wav",
+	"gorefast/gorefast_hurt_02.wav",
+	"gorefast/gorefast_hurt_03.wav",
+	"gorefast/gorefast_hurt_04.wav",
+};
+
+char g_IdleSounds[][] = {
+	"gorefast/gorefast_idle_wet_01.wav",
+	"gorefast/gorefast_idle_wet_02.wav",
+	"gorefast/gorefast_idle_wet_03.wav",
+	"gorefast/gorefast_idle_wet_04.wav",
+	"gorefast/gorefast_idle_wet_05.wav",
+};
+
+char g_IdleAlertedSounds[][] = {
+	"gorefast/gorefast_idle_inhale_creepy_01.wav",
+	"gorefast/gorefast_idle_inhale_creepy_02.wav",
+	"gorefast/gorefast_idle_alerted_01.wav",
+	"gorefast/gorefast_idle_alerted_02.wav",
+	"gorefast/gorefast_idle_alerted_03.wav",
+};
+
 public Plugin myinfo = 
 {
 	name = "[TF2] KF2 Clot NPC", 
@@ -94,8 +124,34 @@ public Plugin myinfo =
 };
 
 
+public void OnMapStart()
+{
+	for (int i = 0; i < (sizeof(g_DeathSounds)); i++)       { PrecacheSound(g_DeathSounds[i]);       }
+	for (int i = 0; i < (sizeof(g_HurtSounds)); i++)        { PrecacheSound(g_HurtSounds[i]);        }
+	for (int i = 0; i < (sizeof(g_IdleSounds)); i++)        { PrecacheSound(g_IdleSounds[i]);        }
+	for (int i = 0; i < (sizeof(g_IdleAlertedSounds)); i++) { PrecacheSound(g_IdleAlertedSounds[i]); }
+	
+	Handle hConf = LoadGameConfigFile("tf2.pets");
+
+	navarea_count = GameConfGetAddress(hConf, "navarea_count");
+	PrintToServer("[npc_gorefast] Found \"navarea_count\" @ 0x%X", navarea_count);
+	
+	if(LoadFromAddress(navarea_count, NumberType_Int32) <= 0)
+	{
+		SetFailState("[npc_gorefast] No nav mesh!");
+		return;
+	}
+	
+	//TheNavAreas is nicely above navarea_count
+	TheNavAreas = view_as<Address>(LoadFromAddress(navarea_count + view_as<Address>(0x4), NumberType_Int32));
+	PrintToServer("[npc_gorefast] Found \"TheNavAreas\" @ 0x%X", TheNavAreas);
+	
+	delete hConf;
+}
+
 //#define DEBUG_UPDATE
 //#define DEBUG_ANIMATION
+//#define DEBUG_SOUND
 
 methodmap CKnownEntity
 {
@@ -140,10 +196,9 @@ methodmap CVision < CKnownEntity
 	}
 }
 
-
 methodmap CBaseActor < CVision
 {
-	public CBaseActor(float vecPos[3], float vecAng[3], const char[] model, const char[] modelscale = "1.0", const char[] health = "100", bool bGroundNormal = true)
+	public CBaseActor(float vecPos[3], float vecAng[3], const char[] model, const char[] modelscale = "1.0", const char[] health = "200", bool bGroundNormal = true)
 	{
 		int npc = CreateEntityByName("base_boss");
 		DispatchKeyValueVector(npc, "origin",     vecPos);
@@ -167,7 +222,6 @@ methodmap CBaseActor < CVision
 			DHookRaw(g_hGetGroundNormal, true, pLocomotion)
 		
 		Address pBody = SDKCall(g_hGetBodyInterface, pNB);
-		
 		
 		DHookRaw(g_hGetActivity,         true, pBody);
 		DHookRaw(g_hIsActivity,          true, pBody);
@@ -212,20 +266,14 @@ methodmap CBaseActor < CVision
 	{
 		char buffer[64]; 
 		bool bExists = GetCustomKeyValue(this.index, key, buffer, sizeof(buffer)); 
-		if(!bExists)
-			return -1;
-		
-		return StringToInt(buffer);
+		return bExists ? StringToInt(buffer) : -1;
 	}
 	
 	public float ExtractStringValueAsFloat(const char[] key)
 	{
 		char buffer[64]; 
 		bool bExists = GetCustomKeyValue(this.index, key, buffer, sizeof(buffer)); 
-		if(!bExists)
-			return -1.0;
-		
-		return StringToFloat(buffer);
+		return bExists ? StringToFloat(buffer) : -1.0;
 	}
 	
 	property bool m_bPathing
@@ -321,9 +369,9 @@ methodmap CBaseActor < CVision
 		PF_EnableCallback(this.index, PFCB_Approach,        PluginBot_Approach);
 		//PF_EnableCallback(this.index, PFCB_GetPathCost,     PluginBot_PathCost);
 		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge,  PluginBot_Jump);
-		//PF_EnableCallback(this.index, PFCB_OnMoveToSuccess, PluginBot_MoveToSuccess);
-		//PF_EnableCallback(this.index, PFCB_PathFailed,      PluginBot_MoveToFailure);
-		//PF_EnableCallback(this.index, PFCB_OnMoveToFailure, PluginBot_MoveToFailure);
+		PF_EnableCallback(this.index, PFCB_OnMoveToSuccess, PluginBot_MoveToSuccess);
+		PF_EnableCallback(this.index, PFCB_PathFailed,      PluginBot_MoveToFailure);
+		PF_EnableCallback(this.index, PFCB_OnMoveToFailure, PluginBot_MoveToFailure);
 	}	
 	
 	public void FaceTowards(const float vecGoal[3])
@@ -352,7 +400,7 @@ methodmap CBaseActor < CVision
 			float there[3];
 			bool bYes = false;
 			
-			for (int i = 2; i > 0; i--)
+			for (int i = 1; i <= 2; i++)
 			{
 				if (PF_GetFutureSegment(this.index, i, there)) 
 				{
@@ -402,8 +450,7 @@ methodmap CBaseActor < CVision
 	public void DispatchAnimEvents() { SDKCall(g_hDispatchAnimEvents, this.index, this.index); }
 }
 
-
-methodmap CClotBody < CBaseActor
+methodmap CGoreFastBody < CBaseActor
 {	
 	property int m_iActivity
 	{
@@ -439,7 +486,7 @@ methodmap CClotBody < CBaseActor
 	public bool StartActivity(int iActivity, int flags = 0)
 	{
 		#if defined DEBUG_ANIMATION
-		PrintToServer("CClotBody::StartActivity(%i, %i)", iActivity, flags);
+		PrintToServer("CGoreFastBody::StartActivity(%i, %i)", iActivity, flags);
 		#endif
 		
 		//Translate jump anim
@@ -464,7 +511,7 @@ methodmap CClotBody < CBaseActor
 	public void Update()
 	{
 		#if defined DEBUG_UPDATE
-		PrintToServer("CClotBody::Update()");
+		PrintToServer("CGoreFastBody::Update()");
 		#endif
 		
 		if (this.m_iPoseMoveX < 0) {
@@ -513,7 +560,7 @@ methodmap CClotBody < CBaseActor
 	public int GetActivity()
 	{
 		#if defined DEBUG_ANIMATION
-		PrintToServer("CClotBody::GetActivity()");
+		PrintToServer("CGoreFastBody::GetActivity()");
 		#endif
 	
 		return this.m_iActivity;
@@ -523,7 +570,7 @@ methodmap CClotBody < CBaseActor
 	public bool IsActivity(int iActivity)
 	{
 		#if defined DEBUG_ANIMATION
-		PrintToServer("CClotBody::IsActivity(%i)", iActivity);
+		PrintToServer("CGoreFastBody::IsActivity(%i)", iActivity);
 		#endif
 	
 		return (iActivity == this.m_iActivity);
@@ -538,7 +585,7 @@ methodmap CClotBody < CBaseActor
 	public void RestartMainSequence()
 	{
 		#if defined DEBUG_ANIMATION
-		PrintToServer("CClotBody::RestartMainSequence()");
+		PrintToServer("CGoreFastBody::RestartMainSequence()");
 		#endif
 	
 		SetEntPropFloat(this.index, Prop_Data, "m_flAnimTime", GetGameTime());
@@ -547,29 +594,121 @@ methodmap CClotBody < CBaseActor
 	}
 }
 
-methodmap Clot < CClotBody
+methodmap Clot < CGoreFastBody
 {
+	property int m_iState
+	{
+		public get()              { return this.ExtractStringValueAsInt("m_iState"); }
+		public set(int iActivity) { char buff[8]; IntToString(iActivity, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_iState", buff, true); }
+	}
+
 	property float m_flNextTargetTime
 	{
 		public get()                 { return this.ExtractStringValueAsFloat("m_flNextTargetTime"); }
 		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextTargetTime", buff, true); }
 	}
 	
-	public float GetRunSpeed() { return 300.0; }
+	property float m_flNextIdleSound
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("m_flNextIdleSound"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextIdleSound", buff, true); }
+	}
+	
+	property float m_flNextHurtSound
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("m_flNextHurtSound"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextHurtSound", buff, true); }
+	}
+	
+	public void PlayIdleSound() {
+		if(this.m_flNextIdleSound > GetGameTime())
+			return;
+		
+		EmitSoundToAll(g_IdleSounds[GetRandomInt(0, sizeof(g_IdleSounds) - 1)], this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
+		this.m_flNextIdleSound = GetGameTime() + GetRandomFloat(3.0, 6.0);
+		
+		#if defined DEBUG_SOUND
+		PrintToServer("CGoreFast::PlayIdleSound()");
+		#endif
+	}
+	
+	public void PlayIdleAlertSound() {
+		if(this.m_flNextIdleSound > GetGameTime())
+			return;
+		
+		EmitSoundToAll(g_IdleAlertedSounds[GetRandomInt(0, sizeof(g_IdleAlertedSounds) - 1)], this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
+		this.m_flNextIdleSound = GetGameTime() + GetRandomFloat(3.0, 6.0);
+		
+		#if defined DEBUG_SOUND
+		PrintToServer("CGoreFast::PlayIdleAlertSound()");
+		#endif
+	}
+	
+	public void PlayHurtSound() {
+		if(this.m_flNextHurtSound > GetGameTime())
+			return;
+		
+		EmitSoundToAll(g_HurtSounds[GetRandomInt(0, sizeof(g_HurtSounds) - 1)], this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
+		this.m_flNextHurtSound = GetGameTime() + GetRandomFloat(0.6, 1.6);
+		
+		#if defined DEBUG_SOUND
+		PrintToServer("CGoreFast::PlayHurtSound()");
+		#endif
+		
+	}
+	
+	public void PlayDeathSound() {
+		EmitSoundToAll(g_DeathSounds[GetRandomInt(0, sizeof(g_DeathSounds) - 1)], this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
+		
+		#if defined DEBUG_SOUND
+		PrintToServer("CGoreFast::PlayDeathSound()");
+		#endif
+	}
+	
+	public void PlayMeleeHitSound() {
+		PrecacheSound(")weapons/halloween_boss/knight_axe_hit.wav");
+		EmitSoundToAll(")weapons/halloween_boss/knight_axe_hit.wav", this.index, SNDCHAN_STATIC, 100, _, 1.0, GetRandomInt(95, 105));
+							
+		#if defined DEBUG_SOUND
+		PrintToServer("CGoreFast::PlayMeleeHitSound()");
+		#endif
+	}
+
+	public void PlayMeleeMissSound() {
+		PrecacheSound(")weapons/halloween_boss/knight_axe_miss.wav");
+		EmitSoundToAll(")weapons/halloween_boss/knight_axe_miss.wav", this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
+		
+		#if defined DEBUG_SOUND
+		PrintToServer("CGoreFast::PlayMeleeMissSound()");
+		#endif
+	}
+	
+	public bool IsAlert()
+	{
+		return this.m_iState == 1;
+	}
+
+	public float GetRunSpeed() 
+	{
+		return this.IsAlert() ? 300.0 : 110.0; 
+	}
 	
 	public Clot(int client, float vecPos[3], float vecAng[3], const char[] model, int team)
 	{
 		Clot npc = view_as<Clot>(CBaseActor(vecPos, vecAng, model, "1.0"));
 		
-		int iActivity = npc.LookupActivity("ACT_MP_RUN_MELEE");
+		int iActivity = npc.LookupActivity("ACT_MP_STAND_MELEE");
 		if(iActivity > 0)
 			npc.StartActivity(iActivity);
 		
-		npc.CreatePather(18.0, 64.0, 1000.0, npc.GetSolidMask(), 300.0, 0.25, 1.0);
+		npc.CreatePather(18.0, 64.0, 1000.0, npc.GetSolidMask(), 300.0, 0.25, 1.5);
 		npc.m_flNextTargetTime = GetGameTime() + GetRandomFloat(1.0, 4.0);
 		
 		SDKHook(npc.index, SDKHook_Think, ClotThink);
 		SDKHook(npc.index, SDKHook_TraceAttack, ClotDamaged);
+		
+		//IDLE
+		npc.m_iState = 0;
 		
 		return npc;
 	}
@@ -577,8 +716,8 @@ methodmap Clot < CClotBody
 	public bool DoSwingTrace(Handle &trace)
 	{
 		// Setup a volume for the melee weapon to be swung - approx size, so all melee behave the same.
-		static float vecSwingMins[3]; vecSwingMins = view_as<float>({-18, -18, -18});
-		static float vecSwingMaxs[3]; vecSwingMaxs = view_as<float>({18, 18, 18});
+		static float vecSwingMins[3]; vecSwingMins = view_as<float>({-32, -32, -32});
+		static float vecSwingMaxs[3]; vecSwingMaxs = view_as<float>({32, 32, 32});
 	
 		// Setup the swing range.
 		float vecForward[3], vecRight[3], vecUp[3];
@@ -587,9 +726,9 @@ methodmap Clot < CClotBody
 		float vecSwingStart[3]; vecSwingStart = WorldSpaceCenter(this.index);
 		
 		float vecSwingEnd[3];
-		vecSwingEnd[0] = vecSwingStart[0] + vecForward[0] * 75;
-		vecSwingEnd[1] = vecSwingStart[1] + vecForward[1] * 75;
-		vecSwingEnd[2] = vecSwingStart[2] + vecForward[2] * 75;
+		vecSwingEnd[0] = vecSwingStart[0] + vecForward[0] * 100;
+		vecSwingEnd[1] = vecSwingStart[1] + vecForward[1] * 100;
+		vecSwingEnd[2] = vecSwingStart[2] + vecForward[2] * 100;
 		
 		// See if we hit anything.
 		trace = TR_TraceRayFilterEx( vecSwingStart, vecSwingEnd, MASK_SOLID, RayType_EndPoint, FilterData, this.index );
@@ -608,110 +747,118 @@ methodmap Clot < CClotBody
 	}
 }
 
+//TODO 
+//Rewrite
 public void ClotThink(int iNPC)
 {
 	Clot npc = view_as<Clot>(iNPC);
 	npc.Update();
-		
+	
 	CKnownEntity PrimaryThreat = npc.GetVisionInterface().GetPrimaryKnownThreat();
 
 	if(PrimaryThreat.Address != Address_Null)
 	{
-		int PrimaryThreatIndex = PrimaryThreat.GetEntity();	
-		PF_SetGoalEntity(npc.index, PrimaryThreatIndex);
+		npc.m_iState = 1;
 	
-		float vecTarget[3]; vecTarget = WorldSpaceCenter(PrimaryThreatIndex);
-		
-		float flDistanceToTarget = GetVectorDistance(vecTarget, WorldSpaceCenter(npc.index));
-		
-		if(flDistanceToTarget < 75.0)
+		int PrimaryThreatIndex = PrimaryThreat.GetEntity();	
+		if(PrimaryThreatIndex <= MaxClients && !IsPlayerAlive(PrimaryThreatIndex))
 		{
-			npc.FaceTowards(vecTarget);
-			
-			if(npc.m_flNextMeleeAttack < GetGameTime()) 
-			{
-				npc.AddGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
-				
-				Handle swingTrace;
-				if(npc.DoSwingTrace(swingTrace)) 
-				{
-					int target = TR_GetEntityIndex(swingTrace);		
-					if(target > 0 && IsValidEntity(target)) 
-					{
-						SDKHooks_TakeDamage(target, npc.index, npc.index, 25.0, DMG_SLASH|DMG_CLUB);
-						int iHealthPost = GetEntProp(target, Prop_Data, "m_iHealth");
-												
-						if(iHealthPost <= 0)
-						{
-							//Hurray and stuff.
-							npc.AddGesture("ACT_MP_GESTURE_VC_FISTBUMP_MELEE");
-						}
-					}
-				}
-				
-				delete swingTrace;
-				
-				npc.m_flNextMeleeAttack = GetGameTime() + 0.5;
-			}
-			
+			//Stop chasing dead target.
 			PF_StopPathing(npc.index);
 			npc.m_bPathing = false;
 		}
 		else
 		{
-			PF_StartPathing(npc.index);
-			npc.m_bPathing = true;
+			PF_SetGoalEntity(npc.index, PrimaryThreatIndex);
+		
+			float vecTarget[3]; vecTarget = WorldSpaceCenter(PrimaryThreatIndex);
+			
+			float flDistanceToTarget = GetVectorDistance(vecTarget, WorldSpaceCenter(npc.index));
+			
+			//Target close enough to hit
+			if(flDistanceToTarget < 100.0)
+			{
+				//Look at target so we hit.
+				npc.FaceTowards(vecTarget);
+				
+				//Can we attack right now?
+				if(npc.m_flNextMeleeAttack < GetGameTime() && !npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST"))
+				{
+					//Play attack anim
+					npc.AddGesture("ACT_MP_ATTACK_Stand_MELEE");
+					
+					Handle swingTrace;
+					if(npc.DoSwingTrace(swingTrace)) 
+					{
+						int target = TR_GetEntityIndex(swingTrace);	
+						if(target > 0 && IsValidEntity(target)) 
+						{					
+							SDKHooks_TakeDamage(target, npc.index, npc.index, 50.0, DMG_SLASH|DMG_ALWAYSGIB|DMG_CLUB);
+							
+							// Hit
+							npc.PlayMeleeHitSound();
+							
+							//Did we kill them?
+							int iHealthPost = GetEntProp(target, Prop_Data, "m_iHealth");
+							if(iHealthPost <= 0) {
+								//Hell yeah we did.
+								npc.AddGesture("ACT_MP_GESTURE_VC_FISTBUMP_MELEE");
+							}
+						} else {
+							// Miss
+							npc.PlayMeleeMissSound();
+						}
+					}
+					
+					delete swingTrace;
+					
+					npc.m_flNextMeleeAttack = GetGameTime() + 1.25;
+				}
+				
+				PF_StopPathing(npc.index);
+				npc.m_bPathing = false;
+			}
+			else
+			{
+				PF_StartPathing(npc.index);
+				npc.m_bPathing = true;
+			}
 		}
 	}
-	
-	//Is it time to pick a new place to go?
-/*	if(npc.m_flNextTargetTime < GetGameTime())
+	else
 	{
-		//Pick a random goal area
-		NavArea RandomArea = PickRandomArea();	
+		npc.m_iState = 0;
+	}
+	
+	if(!npc.IsAlert()) {
+		npc.PlayIdleSound();
 		
-		if(RandomArea == NavArea_Null) 
-			return;
+		//Roam while idle
 		
-		float vecGoal[3]; RandomArea.GetCenter(vecGoal);
-		
-		if(!PF_IsPathToVectorPossible(iNPC, vecGoal))
-			return;
-		
-		if(PrimaryKnownThreat.Address != Address_Null)
+		//Is it time to pick a new place to go?
+		if(npc.m_flNextTargetTime < GetGameTime())
 		{
-			PF_SetGoalEntity(iNPC, PrimaryKnownThreat.GetEntity());
+			//Pick a random goal area
+			NavArea RandomArea = PickRandomArea();	
 			
-			PrintToServer("CHASE TARGET");
-		}
-		else
-		{
+			if(RandomArea == NavArea_Null) 
+				return;
+			
+			float vecGoal[3]; RandomArea.GetCenter(vecGoal);
+			
+			if(!PF_IsPathToVectorPossible(iNPC, vecGoal))
+				return;
+			
 			PF_SetGoalVector(iNPC, vecGoal);
+			PF_StartPathing(iNPC);
+			npc.m_bPathing = true;
 			
-			PrintToServer("RANDOM PLACE");
+			//Timeout
+			npc.m_flNextTargetTime = GetGameTime() + 10.0;
 		}
-		
-		PF_StartPathing(iNPC);
-		npc.m_bPathing = true;
-		npc.m_flNextTargetTime = GetGameTime() + 1000.0;
-	}*/
-	
-	/*
-	bool bAttacking = npc.IsPlayingGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
-	
-	if(npc.m_flNextMeleeAttack < GetGameTime())
-	{
-		if(!bAttacking)
-			npc.AddGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
-		
-		PrintToServer("PLAY ATTACK");
-		
-		npc.m_flNextMeleeAttack = GetGameTime() + 2.0;
-		npc.m_bPathing = false;
-		
-		PF_StopPathing(iNPC);
+	} else {
+		npc.PlayIdleAlertSound();
 	}
-	*/
 	
 	//v Handle jumping and running v
 	int idealActivity = -1;
@@ -719,7 +866,11 @@ public void ClotThink(int iNPC)
 	if(!npc.m_bJumping)
 	{
 		if(npc.m_bPathing) {
-			idealActivity = npc.LookupActivity("ACT_MP_RUN_MELEE");
+			if(npc.IsAlert()) {
+				idealActivity = npc.LookupActivity("ACT_MP_RUN_MELEE");
+			} else {
+				idealActivity = npc.LookupActivity("ACT_MP_CROUCHWALK_MELEE");
+			}
 		} else {
 			idealActivity = npc.LookupActivity("ACT_MP_STAND_MELEE");
 		}
@@ -782,7 +933,6 @@ public void ClotThink(int iNPC)
 	}
 }
 
-
 public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b : a)); }
 
 public Action Command_PetMenu(int client, int argc)
@@ -798,14 +948,14 @@ public Action Command_PetMenu(int client, int argc)
 	char arg1[16];
 	GetCmdArg(1, arg1, sizeof(arg1));
 	
-	Clot(client, flPos, flAng, "models/vince_sf_proxy/zed_clot/zed_clot_01.mdl", StringToInt(arg1));
+	Clot(client, flPos, flAng, "models/vince_sf_proxy/zed_gorefast/zed_gorefast_01.mdl", StringToInt(arg1));
 	
 	return Plugin_Handled;
 }
 
 public void OnPluginStart()
 {
-	RegAdminCmd("sm_clot", Command_PetMenu, ADMFLAG_ROOT);
+	RegAdminCmd("sm_gorefast", Command_PetMenu, ADMFLAG_ROOT);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	
@@ -1101,26 +1251,6 @@ public void OnPluginStart()
 	delete hConf;
 }
 
-public void OnMapStart()
-{
-	Handle hConf = LoadGameConfigFile("tf2.pets");
-
-	navarea_count = GameConfGetAddress(hConf, "navarea_count");
-	PrintToServer("[npc_clot] Found \"navarea_count\" @ 0x%X", navarea_count);
-	
-	if(LoadFromAddress(navarea_count, NumberType_Int32) <= 0)
-	{
-		SetFailState("[npc_clot] No nav mesh!");
-		return;
-	}
-	
-	//TheNavAreas is nicely above navarea_count
-	TheNavAreas = view_as<Address>(LoadFromAddress(navarea_count + view_as<Address>(0x4), NumberType_Int32));
-	PrintToServer("[npc_clot] Found \"TheNavAreas\" @ 0x%X", TheNavAreas);
-	
-	delete hConf;
-}
-
 Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType returntype, ThisPointerType thistype, DHookCallback callback)
 {
 	int iOffset = GameConfGetOffset(gc, key);
@@ -1148,7 +1278,6 @@ public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn,
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturn(hReturn, false);  return MRES_Supercede; }
 public MRESReturn CTFBaseBoss_GetCurrencyValue(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturn(hReturn, 0);      return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 800.0);  return MRES_Supercede; }
-
 
 public MRESReturn ILocomotion_GetRunSpeed(Address pThis, Handle hReturn, Handle hParams)              
 { 
@@ -1297,17 +1426,32 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	if(attacker <= 0 || attacker > MaxClients)
 		return Plugin_Continue;
 	
-	
-	//Valid inflictors only.
-	if(inflictor <= 0 || inflictor > MaxClients)
-		return Plugin_Continue;
-	
 	//PrintToServer("ClotDamaged victim %i attacker %i inflictor %i damage %.1f hitbox %i hitgroup %i", victim, attacker, inflictor, damage, hitbox, hitgroup);
 	
 	Clot npc = view_as<Clot>(victim);
 	
+	if(GetEntProp(victim, Prop_Data, "m_iHealth") <= damage)
+	{
+		npc.PlayDeathSound();
+		
+		damage = 0.0;
+		AcceptEntityInput(victim, "BecomeRagdoll");
+		
+		SDKUnhook(victim, SDKHook_Think, ClotThink);
+		
+		return Plugin_Changed;
+	}
+	
+	bool bIsKnownAttacker = (npc.GetVisionInterface().GetKnown(attacker).Address != Address_Null);
+	
+	if(!bIsKnownAttacker)
+	{
+		npc.GetVisionInterface().AddKnownEntity(attacker);
+	}
+	
 	if(!npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST")) {
 		npc.AddGesture("ACT_MP_GESTURE_FLINCH_CHEST");
+		npc.PlayHurtSound();
 	}
 	
 	return Plugin_Continue;
