@@ -51,6 +51,7 @@ Handle g_hSDKWorldSpaceCenter;
 Handle g_hStudio_FindAttachment;
 Handle g_hGetAttachment;
 Handle g_hAddGesture;
+Handle g_hIsPlayingGesture;
 Handle g_hFindBodygroupByName;
 Handle g_hSetBodyGroup;
 Handle g_hSelectWeightedSequence;
@@ -94,10 +95,53 @@ public Plugin myinfo =
 
 
 //#define DEBUG_UPDATE
-#define DEBUG_ANIMATION
+//#define DEBUG_ANIMATION
+
+methodmap CKnownEntity
+{
+	// convert to address
+	property Address Address {
+		public get() { return view_as<Address>(this); } 
+	}
+
+	// return the entity index of the known entity
+	public int GetEntity() {
+		return SDKCall(g_hGetKnownEntity, this);
+	}
+	
+	// could be seen or heard, but now the entity's position is known
+	public void UpdatePosition() {
+		SDKCall(g_hUpdatePosition, this);
+	}
+	
+	// update target visibility status.
+	public void UpdateVisibilityStatus(bool visible) {
+		SDKCall(g_hUpdateVisibilityStatus, this, visible);
+	}
+}
+
+methodmap CVision < CKnownEntity
+{
+	// return the biggest threat to ourselves that we are aware of
+	public CKnownEntity GetPrimaryKnownThreat(bool onlyVisibleThreats = false) {
+		return SDKCall(g_hGetPrimaryKnownThreat, this, onlyVisibleThreats);
+	}
+	
+	// given an entity, return our known version of it (or NULL if we don't know of it)
+	public CKnownEntity GetKnown(int entity) {
+		return SDKCall(g_hGetKnown, this, entity);
+	}
+	
+	// Introduce a known entity into the system. Its position is assumed to be known
+	// and will be updated, and it is assumed to not yet have been seen by us, allowing for learning
+	// of known entities by being told about them, hearing them, etc.
+	public void AddKnownEntity(int entity) {
+		SDKCall(g_hAddKnownEntity, this, entity);
+	}
+}
 
 
-methodmap CBaseActor
+methodmap CBaseActor < CVision
 {
 	public CBaseActor(float vecPos[3], float vecAng[3], const char[] model, const char[] modelscale = "1.0", const char[] health = "100", bool bGroundNormal = true)
 	{
@@ -210,7 +254,7 @@ methodmap CBaseActor
 	
 	public Address GetLocomotionInterface() { return SDKCall(g_hGetLocomotionInterface, SDKCall(g_hMyNextBotPointer, this.index)); }
 	public Address GetBodyInterface()       { return SDKCall(g_hGetBodyInterface,       SDKCall(g_hMyNextBotPointer, this.index)); }
-	public Address GetVisionInterface()     { return SDKCall(g_hGetVisionInterface,     SDKCall(g_hMyNextBotPointer, this.index)); }	
+	public CVision GetVisionInterface()     { return SDKCall(g_hGetVisionInterface,     SDKCall(g_hMyNextBotPointer, this.index)); }	
 	
 	public bool IsStuck() { return SDKCall(g_hIsStuck, this.GetLocomotionInterface()); }
 	public int GetTeam()  { return GetEntProp(this.index, Prop_Send, "m_iTeamNum"); }
@@ -262,7 +306,15 @@ methodmap CBaseActor
 			return;
 		
 		SDKCall(g_hAddGesture, this.index, iSequence, true);
-	}	
+	}
+	public bool IsPlayingGesture(const char[] anim)
+	{
+		int iSequence = this.LookupActivity(anim);
+		if(iSequence < 0)
+			return;
+		
+		SDKCall(g_hIsPlayingGesture, this.index, iSequence);
+	}
 	public void CreatePather(float flStep, float flJump, float flDrop, int iSolid, float flAhead, float flRePath, float flHull)
 	{
 		PF_Create(this.index, flStep, flJump, flDrop, 0.6, iSolid, flAhead, flRePath, flHull);
@@ -352,43 +404,6 @@ methodmap CBaseActor
 	public void DispatchAnimEvents() { SDKCall(g_hDispatchAnimEvents, this.index, this.index); }
 }
 
-methodmap CKnownEntity < CBaseActor
-{
-	// return the entity index of the known entity
-	public int GetEntity() {
-		return SDKCall(g_hGetKnownEntity, this);
-	}
-	
-	// could be seen or heard, but now the entity's position is known
-	public void UpdatePosition() {
-		SDKCall(g_hUpdatePosition, this);
-	}
-	
-	// refresh target memory
-	public void UpdateVisibilityStatus(bool visible) {
-		SDKCall(g_hUpdateVisibilityStatus, this.GetVisionInterface(), visible);
-	}
-}
-
-methodmap CVision < CKnownEntity
-{
-	// return the biggest threat to ourselves that we are aware of
-	public CKnownEntity GetPrimaryKnownThreat(bool onlyVisibleThreats = false) {
-		return SDKCall(g_hGetPrimaryKnownThreat, this.GetVisionInterface(), onlyVisibleThreats);
-	}
-	
-	// given an entity, return our known version of it (or NULL if we don't know of it)
-	public CKnownEntity GetKnown(int entity) {
-		return SDKCall(g_hGetKnown, this.GetVisionInterface(), entity);
-	}
-	
-	// Introduce a known entity into the system. Its position is assumed to be known
-	// and will be updated, and it is assumed to not yet have been seen by us, allowing for learning
-	// of known entities by being told about them, hearing them, etc.
-	public void AddKnownEntity(int entity) {
-		SDKCall(g_hAddKnownEntity, this.GetVisionInterface(), entity);
-	}
-}
 
 methodmap CClotBody < CBaseActor
 {	
@@ -414,6 +429,12 @@ methodmap CClotBody < CBaseActor
 	{
 		public get()                 { return this.ExtractStringValueAsFloat("m_flNextMeleeAttack"); }
 		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextMeleeAttack", buff, true); }
+	}
+	
+	property bool m_bAttacking
+	{
+		public get()                { return !!this.ExtractStringValueAsInt("m_bAttacking"); }
+		public set(bool flNextTime) { char buff[8]; IntToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_bAttacking", buff, true); }
 	}
 
 	//Begin an animation activity, return false if we cant do that right now.
@@ -546,7 +567,7 @@ methodmap Clot < CClotBody
 		if(iActivity > 0)
 			npc.StartActivity(iActivity);
 		
-		npc.CreatePather(18.0, 64.0, 1000.0, npc.GetSolidMask(), 300.0, 0.5, 1.0);
+		npc.CreatePather(18.0, 64.0, 1000.0, npc.GetSolidMask(), 300.0, 0.25, 1.0);
 		npc.m_flNextTargetTime = GetGameTime() + GetRandomFloat(1.0, 4.0);
 		
 		SDKHook(npc.index, SDKHook_Think, ClotThink);
@@ -554,8 +575,6 @@ methodmap Clot < CClotBody
 		
 		return npc;
 	}
-	
-	
 }
 
 public void ClotThink(int iNPC)
@@ -644,11 +663,23 @@ public void ClotThink(int iNPC)
 		if(!PF_IsPathToVectorPossible(iNPC, vecGoal))
 			return;
 		
-		//PF_SetGoalVector(iNPC, vecGoal);
-		PF_SetGoalEntity(iNPC, 1);
+		CVision Vision = npc.GetVisionInterface();
+		CKnownEntity KnownEntity = Vision.GetPrimaryKnownThreat();
+		if(KnownEntity.Address != Address_Null)
+		{
+			PF_SetGoalEntity(iNPC, KnownEntity.GetEntity());
+			
+			PrintToServer("CHASE TARGET");
+		}
+		else
+		{
+			PF_SetGoalVector(iNPC, vecGoal);
+			
+			PrintToServer("RANDOM PLACE");
+		}
+		
 		PF_StartPathing(iNPC);
 		npc.m_bPathing = true;
-		
 		npc.m_flNextTargetTime = GetGameTime() + 1000.0;
 	}
 	
@@ -880,13 +911,21 @@ public void OnPluginStart()
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 	if((g_hLookupPoseParameter = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::LookupPoseParameter");
 	
-	//CBaseAnimatingOverlay::AddGesture( int nSequence, bool autokill )
+	//CBaseAnimatingOverlay::AddGesture( Activity activity, bool autokill )
 	StartPrepSDKCall(SDKCall_Entity);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimatingOverlay::AddGesture");
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
 	PrepSDKCall_AddParameter(SDKType_Bool, SDKPass_Plain); 
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 	if((g_hAddGesture = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimatingOverlay::AddGesture");
+	
+	//CBaseAnimatingOverlay::IsPlayingGesture( Activity activity )
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimatingOverlay::IsPlayingGesture");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	PrepSDKCall_SetReturnInfo(SDKType_Bool, SDKPass_Plain);
+	if((g_hIsPlayingGesture = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimatingOverlay::IsPlayingGesture");
+	
 	
 	//-----------------------------------------------------------------------------
 	
@@ -1173,7 +1212,9 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	
 	Clot npc = view_as<Clot>(victim);
 	
-	npc.AddGesture("ACT_MP_GESTURE_FLINCH_CHEST");
+	if(!npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST")) {
+		npc.AddGesture("ACT_MP_GESTURE_FLINCH_CHEST");
+	}
 	
 	int m_nBody = GetEntProp(victim, Prop_Send, "m_nBody");
 	

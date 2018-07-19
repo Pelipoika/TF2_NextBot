@@ -135,7 +135,7 @@
 			}
 			"CBaseAnimatingOverlay::IsPlayingGesture" //bool IsPlayingGesture( Activity activity ); | Found above "spell_skeleton_goop_green"
 			{
-				"windows"	""
+				"windows"	"\x55\x8B\xEC\xFF\x75\x08\xE8\x2A\x2A\x2A\x2A\x83\xF8\xFF"
 				"linux"		"@_ZN21CBaseAnimatingOverlay16IsPlayingGestureE8Activity"
 			}
 			
