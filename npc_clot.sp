@@ -318,13 +318,11 @@ methodmap CBaseActor < CVision
 	public void CreatePather(float flStep, float flJump, float flDrop, int iSolid, float flAhead, float flRePath, float flHull)
 	{
 		PF_Create(this.index, flStep, flJump, flDrop, 0.6, iSolid, flAhead, flRePath, flHull);
-		PF_EnableCallback(this.index, PFCB_Approach, PluginBot_Approach);
-		PF_EnableCallback(this.index, PFCB_GetPathCost, PluginBot_PathCost);
-		
-		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge, PluginBot_Jump);
-		
+		PF_EnableCallback(this.index, PFCB_Approach,        PluginBot_Approach);
+		//PF_EnableCallback(this.index, PFCB_GetPathCost,     PluginBot_PathCost);
+		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge,  PluginBot_Jump);
 		PF_EnableCallback(this.index, PFCB_OnMoveToSuccess, PluginBot_MoveToSuccess);
-		PF_EnableCallback(this.index, PFCB_PathFailed, PluginBot_MoveToFailure);
+		PF_EnableCallback(this.index, PFCB_PathFailed,      PluginBot_MoveToFailure);
 		PF_EnableCallback(this.index, PFCB_OnMoveToFailure, PluginBot_MoveToFailure);
 	}	
 	
@@ -575,13 +573,148 @@ methodmap Clot < CClotBody
 		
 		return npc;
 	}
+	
+	public bool DoSwingTrace(Handle &trace)
+	{
+		// Setup a volume for the melee weapon to be swung - approx size, so all melee behave the same.
+		static float vecSwingMins[3]; vecSwingMins = view_as<float>({-18, -18, -18});
+		static float vecSwingMaxs[3]; vecSwingMaxs = view_as<float>({18, 18, 18});
+	
+		// Setup the swing range.
+		float vecForward[3], vecRight[3], vecUp[3];
+		this.GetVectors(vecForward, vecRight, vecUp);
+		
+		float vecSwingStart[3]; vecSwingStart = WorldSpaceCenter(this.index);
+		
+		float vecSwingEnd[3];
+		vecSwingEnd[0] = vecSwingStart[0] + vecForward[0] * 75;
+		vecSwingEnd[1] = vecSwingStart[1] + vecForward[1] * 75;
+		vecSwingEnd[2] = vecSwingStart[2] + vecForward[2] * 75;
+		
+		// See if we hit anything.
+		trace = TR_TraceRayFilterEx( vecSwingStart, vecSwingEnd, MASK_SOLID, RayType_EndPoint, FilterData, this.index );
+		if ( TR_GetFraction(trace) >= 1.0 )
+		{
+			delete trace;
+			trace = TR_TraceHullFilterEx( vecSwingStart, vecSwingEnd, vecSwingMins, vecSwingMaxs, MASK_SOLID, FilterData, this.index );
+			if ( TR_GetFraction(trace) < 1.0 )
+			{
+				// This is the point on the actual surface (the hull could have hit space)
+				TR_GetEndPosition(vecSwingEnd, trace);	
+			}
+		}
+	
+		return ( TR_GetFraction(trace) < 1.0 );
+	}
 }
 
 public void ClotThink(int iNPC)
 {
 	Clot npc = view_as<Clot>(iNPC);
 	npc.Update();
+		
+	CKnownEntity PrimaryThreat = npc.GetVisionInterface().GetPrimaryKnownThreat();
+
+	if(PrimaryThreat.Address != Address_Null)
+	{
+		int PrimaryThreatIndex = PrimaryThreat.GetEntity();	
+		PF_SetGoalEntity(npc.index, PrimaryThreatIndex);
 	
+		float vecTarget[3]; vecTarget = WorldSpaceCenter(PrimaryThreatIndex);
+		
+		float flDistanceToTarget = GetVectorDistance(vecTarget, WorldSpaceCenter(npc.index));
+		
+	/*	if(flDistanceToTarget < 1000.0)
+		{
+			PF_DisableCallback(npc.index, PFCB_GetPathCost);
+		}
+		else
+		{
+			PF_EnableCallback(npc.index, PFCB_GetPathCost, PluginBot_PathCost);
+		}
+		*/
+		if(flDistanceToTarget < 75.0)
+		{
+			npc.FaceTowards(vecTarget);
+			
+			if(npc.m_flNextMeleeAttack < GetGameTime()) 
+			{
+				npc.AddGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
+				
+				Handle swingTrace;
+				if(npc.DoSwingTrace(swingTrace)) 
+				{
+					int target = TR_GetEntityIndex(swingTrace);		
+					if(IsValidEntity(target)) {
+						SDKHooks_TakeDamage(target, npc.index, npc.index, 5.0, DMG_SLASH);
+					}
+				}
+				
+				delete swingTrace;
+				
+				npc.m_flNextMeleeAttack = GetGameTime() + 0.5;
+			}
+			
+			PF_StopPathing(npc.index);
+			npc.m_bPathing = false;
+		}
+		else
+		{
+			PF_StartPathing(npc.index);
+			npc.m_bPathing = true;
+		}
+	}
+	
+	//Is it time to pick a new place to go?
+/*	if(npc.m_flNextTargetTime < GetGameTime())
+	{
+		//Pick a random goal area
+		NavArea RandomArea = PickRandomArea();	
+		
+		if(RandomArea == NavArea_Null) 
+			return;
+		
+		float vecGoal[3]; RandomArea.GetCenter(vecGoal);
+		
+		if(!PF_IsPathToVectorPossible(iNPC, vecGoal))
+			return;
+		
+		if(PrimaryKnownThreat.Address != Address_Null)
+		{
+			PF_SetGoalEntity(iNPC, PrimaryKnownThreat.GetEntity());
+			
+			PrintToServer("CHASE TARGET");
+		}
+		else
+		{
+			PF_SetGoalVector(iNPC, vecGoal);
+			
+			PrintToServer("RANDOM PLACE");
+		}
+		
+		PF_StartPathing(iNPC);
+		npc.m_bPathing = true;
+		npc.m_flNextTargetTime = GetGameTime() + 1000.0;
+	}*/
+	
+	/*
+	bool bAttacking = npc.IsPlayingGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
+	
+	if(npc.m_flNextMeleeAttack < GetGameTime())
+	{
+		if(!bAttacking)
+			npc.AddGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
+		
+		PrintToServer("PLAY ATTACK");
+		
+		npc.m_flNextMeleeAttack = GetGameTime() + 2.0;
+		npc.m_bPathing = false;
+		
+		PF_StopPathing(iNPC);
+	}
+	*/
+	
+	//v Handle jumping and running v
 	int idealActivity = -1;
 	
 	if(!npc.m_bJumping)
@@ -647,46 +780,6 @@ public void ClotThink(int iNPC)
 		if(npc.m_iActivity != idealActivity) {
 			npc.StartActivity(idealActivity);
 		}
-	}
-	
-	//Is it time to pick a new place to go?
-	if(npc.m_flNextTargetTime < GetGameTime())
-	{
-		//Pick a random goal area
-		NavArea RandomArea = PickRandomArea();	
-		
-		if(RandomArea == NavArea_Null) 
-			return;
-		
-		float vecGoal[3]; RandomArea.GetCenter(vecGoal);
-		
-		if(!PF_IsPathToVectorPossible(iNPC, vecGoal))
-			return;
-		
-		CVision Vision = npc.GetVisionInterface();
-		CKnownEntity KnownEntity = Vision.GetPrimaryKnownThreat();
-		if(KnownEntity.Address != Address_Null)
-		{
-			PF_SetGoalEntity(iNPC, KnownEntity.GetEntity());
-			
-			PrintToServer("CHASE TARGET");
-		}
-		else
-		{
-			PF_SetGoalVector(iNPC, vecGoal);
-			
-			PrintToServer("RANDOM PLACE");
-		}
-		
-		PF_StartPathing(iNPC);
-		npc.m_bPathing = true;
-		npc.m_flNextTargetTime = GetGameTime() + 1000.0;
-	}
-	
-	if(npc.m_flNextMeleeAttack < GetGameTime())
-	{
-		npc.AddGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
-		npc.m_flNextMeleeAttack = GetGameTime() + 2.0;
 	}
 }
 
@@ -1216,7 +1309,7 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 		npc.AddGesture("ACT_MP_GESTURE_FLINCH_CHEST");
 	}
 	
-	int m_nBody = GetEntProp(victim, Prop_Send, "m_nBody");
+/*	int m_nBody = GetEntProp(victim, Prop_Send, "m_nBody");
 	
 	switch(hitgroup)
 	{
@@ -1257,28 +1350,7 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 				}
 			}
 		}
-	}
-	
-	if(GetEntProp(npc.index, Prop_Data, "m_iHealth") <= damage)
-	{
-		AcceptEntityInput(npc.index, "BecomeRagdoll");
-		
-		//TODO FIX ME
-		
-		Event npc_hurt = CreateEvent("npc_hurt");
-		npc_hurt.SetInt("entindex", npc.index);
-		npc_hurt.SetInt("health", 0);
-		npc_hurt.SetInt("attacker_player", attacker);
-		npc_hurt.SetInt("weaponid", 77);	//Fake news
-		npc_hurt.SetInt("damageamount", RoundToNearest(damage));
-		npc_hurt.SetInt("crit", 0);
-		npc_hurt.SetInt("boss", 0);
-		npc_hurt.Fire();
-		
-		damage = 0.005;
-		
-		return Plugin_Changed;
-	}
+	}*/
 	
 	return Plugin_Continue;
 }
@@ -1297,4 +1369,17 @@ stock NavArea PickRandomArea()
 	
 	//Pick a random goal area
 	return view_as<NavArea>(LoadFromAddress(TheNavAreas + view_as<Address>(4 * GetRandomInt(0, iAreaCount - 1)), NumberType_Int32));
+}
+
+public bool FilterData(int entity, int contentsMask, any data)
+{
+	char class[64];
+	GetEntityClassname(entity, class, sizeof(class));
+	
+	if(StrEqual(class, "base_boss"))
+	{
+		return false;
+	}
+	
+	return !(entity == data);
 }
