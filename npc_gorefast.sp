@@ -79,6 +79,9 @@ Handle g_hGetSolidMask;
 Handle g_hStartActivity;
 Handle g_hGetActivity;
 Handle g_hIsActivity;
+Handle g_hGetHullWidth;
+Handle g_hGetHullHeight;
+Handle g_hGetStandHullHeight;
 
 //NavAreas
 Address TheNavAreas;
@@ -223,6 +226,9 @@ methodmap CBaseActor < CVision
 		
 		Address pBody = SDKCall(g_hGetBodyInterface, pNB);
 		
+		DHookRaw(g_hGetHullWidth,        true, pBody);
+		DHookRaw(g_hGetHullHeight,       true, pBody);
+		DHookRaw(g_hGetStandHullHeight,  true, pBody);
 		DHookRaw(g_hGetActivity,         true, pBody);
 		DHookRaw(g_hIsActivity,          true, pBody);
 
@@ -248,8 +254,8 @@ methodmap CBaseActor < CVision
 		//SetEntProp(npc, Prop_Data, "m_bloodColor", -1); 
 		
 		//Fix collisions
-		SetEntPropVector(npc, Prop_Send, "m_vecMaxs", view_as<float>( { 26.0, 26.0, 82.0 } ));
-		SetEntPropVector(npc, Prop_Data, "m_vecMaxs", view_as<float>( { 26.0, 26.0, 82.0 } ));
+		SetEntPropVector(npc, Prop_Send, "m_vecMaxs", view_as<float>( { 26.0, 26.0, 68.0 } ));
+		SetEntPropVector(npc, Prop_Data, "m_vecMaxs", view_as<float>( { 26.0, 26.0, 68.0 } ));
 		
 		SetEntPropVector(npc, Prop_Send, "m_vecMins", view_as<float>( { -26.0, -26.0, 0.0 } ));
 		SetEntPropVector(npc, Prop_Data, "m_vecMins", view_as<float>( { -26.0, -26.0, 0.0 } ));
@@ -1290,8 +1296,11 @@ public void OnPluginStart()
 	g_hShouldCollideWith = DHookCreateEx(hConf, "ILocomotion::ShouldCollideWith",  HookType_Raw, ReturnType_Bool, ThisPointer_Address, ILocomotion_ShouldCollideWith);
 	DHookAddParam(g_hShouldCollideWith, HookParamType_CBaseEntity);
 	
-	g_hGetSolidMask = DHookCreateEx(hConf, "IBody::GetSolidMask", HookType_Raw, ReturnType_Int,  ThisPointer_Address, IBody_GetSolidMask);
-	g_hGetActivity  = DHookCreateEx(hConf, "IBody::GetActivity",  HookType_Raw, ReturnType_Int,  ThisPointer_Address, IBody_GetActivity);
+	g_hGetSolidMask        = DHookCreateEx(hConf, "IBody::GetSolidMask",       HookType_Raw, ReturnType_Int,   ThisPointer_Address, IBody_GetSolidMask);
+	g_hGetActivity         = DHookCreateEx(hConf, "IBody::GetActivity",        HookType_Raw, ReturnType_Int,   ThisPointer_Address, IBody_GetActivity);
+	g_hGetHullWidth        = DHookCreateEx(hConf, "IBody::GetHullWidth",       HookType_Raw, ReturnType_Float, ThisPointer_Address, IBody_GetHullWidth);
+	g_hGetHullHeight       = DHookCreateEx(hConf, "IBody::GetHullHeight",      HookType_Raw, ReturnType_Float, ThisPointer_Address, IBody_GetHullHeight);
+	g_hGetStandHullHeight  = DHookCreateEx(hConf, "IBody::GetStandHullHeight", HookType_Raw, ReturnType_Float, ThisPointer_Address, IBody_GetStandHullHeight);
 	
 	g_hIsActivity   = DHookCreateEx(hConf, "IBody::IsActivity",   HookType_Raw, ReturnType_Bool, ThisPointer_Address, IBody_IsActivity);
 	DHookAddParam(g_hIsActivity, HookParamType_Int);
@@ -1381,12 +1390,9 @@ public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hPar
 	return MRES_Supercede; 
 }
 
-public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, 24.0); return MRES_Supercede; }
-public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 82.0); return MRES_Supercede; }
-public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 82.0); return MRES_Supercede; }
-public MRESReturn IBody_GetCrouchHullHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 82.0); return MRES_Supercede; }
-public MRESReturn IBody_GetHullMins(Address pThis, Handle hReturn, Handle hParams)               { DHookSetReturnVector(hReturn, view_as<float>( { -12.0, -12.0, 0.0 } )); return MRES_Supercede; }
-public MRESReturn IBody_GetHullMaxs(Address pThis, Handle hReturn, Handle hParams)               { DHookSetReturnVector(hReturn, view_as<float>( { 12.0, 12.0, 82.0 } ));  return MRES_Supercede; }
+public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, 26.0); return MRES_Supercede; }
+public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 68.0); return MRES_Supercede; }
+public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 68.0); return MRES_Supercede; }
 
 public void PluginBot_Approach(int bot_entidx, const float vec[3])
 {
@@ -1456,7 +1462,11 @@ public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float di
 	if(flDistance > watchForClimbRange || npc.IsStuck() || npc.m_bJumping)
 		return;
 	
-	npc.JumpAcrossGap(vecPos, vecPos);
+	//I guess we failed our last jump because we're jumping again this soon, let's try just a regular jump.
+	if((GetGameTime() - npc.m_flJumpStartTime) < 0.25)
+		npc.Jump();
+	else
+		npc.JumpAcrossGap(vecPos, vecPos);
 	
 	npc.m_bJumping = true;
 	npc.m_flJumpStartTime = GetGameTime();
