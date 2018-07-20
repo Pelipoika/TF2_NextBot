@@ -330,7 +330,49 @@ methodmap CBaseActor < CVision
 			return -1;
 			
 		return SDKCall(g_hStudio_FindAttachment, pStudioHdr, pAttachmentName) + 1;
-	}	
+	}
+	public void DispatchParticleEffect(int entity, const char[] strParticle, float flStartPos[3], float flEndPos[3], bool bResetAllParticlesOnEntity = false)
+	{
+		int tblidx = FindStringTable("ParticleEffectNames");
+		if (tblidx == INVALID_STRING_TABLE) 
+		{
+			LogError("Could not find string table: ParticleEffectNames");
+			return;
+		}
+		char tmp[256];
+		int count = GetStringTableNumStrings(tblidx);
+		int stridx = INVALID_STRING_INDEX;
+		for (int i = 0; i < count; i++)
+		{
+			ReadStringTable(tblidx, i, tmp, sizeof(tmp));
+			if (StrEqual(tmp, strParticle, false))
+			{
+				stridx = i;
+				break;
+			}
+		}
+		if (stridx == INVALID_STRING_INDEX)
+		{
+			LogError("Could not find particle: %s", strParticle);
+			return;
+		}
+	
+		TE_Start("TFParticleEffect");
+		TE_WriteFloat("m_vecOrigin[0]", flStartPos[0]);
+		TE_WriteFloat("m_vecOrigin[1]", flStartPos[1]);
+		TE_WriteFloat("m_vecOrigin[2]", flStartPos[2]);
+		TE_WriteNum("m_iParticleSystemIndex", stridx);
+		TE_WriteNum("entindex", entity);
+		TE_WriteNum("m_iAttachType", 2);
+		TE_WriteNum("m_iAttachmentPointIndex", 0);
+		TE_WriteNum("m_bResetParticles", bResetAllParticlesOnEntity);    
+		TE_WriteNum("m_bControlPoint1", 1);    
+		TE_WriteNum("m_ControlPoint1.m_eParticleAttachment", 5);  
+		TE_WriteFloat("m_ControlPoint1.m_vecOffset[0]", flEndPos[0]);
+		TE_WriteFloat("m_ControlPoint1.m_vecOffset[1]", flEndPos[1]);
+		TE_WriteFloat("m_ControlPoint1.m_vecOffset[2]", flEndPos[2]);
+		TE_SendToAll();
+	}
 	public int LookupPoseParameter(const char[] szName)
 	{
 		Address pStudioHdr = this.GetModelPtr();
@@ -791,26 +833,38 @@ public void ClotThink(int iNPC)
 					if(npc.DoSwingTrace(swingTrace)) 
 					{
 						int target = TR_GetEntityIndex(swingTrace);	
+						
+						float vecHit[3];
+						TR_GetEndPosition(vecHit, swingTrace);
+						
 						if(target > 0 && IsValidEntity(target)) 
 						{					
-							SDKHooks_TakeDamage(target, npc.index, npc.index, 50.0, DMG_SLASH|DMG_ALWAYSGIB|DMG_CLUB);
+							SDKHooks_TakeDamage(target, npc.index, npc.index, 25.0, DMG_SLASH|DMG_CLUB);
 							
-							// Hit
+							// Hit particle
+							//npc.DispatchParticleEffect(npc.index, "blood_impact_backscatter", vecHit, NULL_VECTOR);
+							npc.DispatchParticleEffect(npc.index, "halloween_boss_axe_hit_sparks", vecHit, NULL_VECTOR);
+							
+							// Hit sound
 							npc.PlayMeleeHitSound();
 							
 							//Did we kill them?
 							int iHealthPost = GetEntProp(target, Prop_Data, "m_iHealth");
 							if(iHealthPost <= 0) {
-								//Hell yeah we did.
+								//Yup, time to celebrate
 								npc.AddGesture("ACT_MP_GESTURE_VC_FISTBUMP_MELEE");
 							}
 						} else {
 							// Miss
 							npc.PlayMeleeMissSound();
+							
+							// Hit particle if we hit something.
+							if(target >= 0) {
+								npc.DispatchParticleEffect(npc.index, "halloween_boss_axe_hit_world", vecHit, NULL_VECTOR);
+								npc.DispatchParticleEffect(npc.index, "impact_dirt", vecHit, NULL_VECTOR);
+							}
 						}
 					}
-					
-					delete swingTrace;
 					
 					npc.m_flNextMeleeAttack = GetGameTime() + 1.25;
 				}
