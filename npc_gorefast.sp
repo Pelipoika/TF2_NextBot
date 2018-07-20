@@ -839,7 +839,7 @@ public void ClotThink(int iNPC)
 						
 						if(target > 0 && IsValidEntity(target)) 
 						{					
-							SDKHooks_TakeDamage(target, npc.index, npc.index, 25.0, DMG_SLASH|DMG_CLUB);
+							SDKHooks_TakeDamage(target, npc.index, npc.index, 50.0, DMG_SLASH|DMG_ALWAYSGIB|DMG_BLAST|DMG_CLUB);
 							
 							// Hit particle
 							//npc.DispatchParticleEffect(npc.index, "blood_impact_backscatter", vecHit, NULL_VECTOR);
@@ -1347,7 +1347,9 @@ public MRESReturn IBody_GetSolidMask(Address pThis, Handle hReturn, Handle hPara
 
 public MRESReturn IBody_GetActivity(Address pThis, Handle hReturn, Handle hParams)              
 { 
+	#if defined DEBUG_ANIMATION
 	PrintToServer("IBody_GetActivity");	
+	#endif
 
 	DHookSetReturn(hReturn, view_as<Clot>(SDKCall(g_hGetEntity, SDKCall(g_hGetBot, pThis))).GetActivity()); 
 	return MRES_Supercede; 
@@ -1356,8 +1358,10 @@ public MRESReturn IBody_GetActivity(Address pThis, Handle hReturn, Handle hParam
 public MRESReturn IBody_IsActivity(Address pThis, Handle hReturn, Handle hParams)              
 {
 	int iActivity = DHookGetParam(hParams, 1);
-
+	
+	#if defined DEBUG_ANIMATION
 	PrintToServer("IBody_IsActivity %i", iActivity);	
+	#endif
 
 	DHookSetReturn(hReturn, view_as<Clot>(SDKCall(g_hGetEntity, SDKCall(g_hGetBot, pThis))).IsActivity(iActivity));
 	return MRES_Supercede; 
@@ -1368,7 +1372,9 @@ public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hPar
 	int iActivity = DHookGetParam(hParams, 1);
 	int fFlags    = DHookGetParam(hParams, 2);
 	
+	#if defined DEBUG_ANIMATION
 	PrintToServer("IBody_StartActivity %i %i", iActivity, fFlags);	
+	#endif
 	
 	DHookSetReturn(hReturn, view_as<Clot>(SDKCall(g_hGetEntity, SDKCall(g_hGetBot, pThis))).StartActivity(iActivity, fFlags)); 
 	
@@ -1498,8 +1504,7 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	
 	bool bIsKnownAttacker = (npc.GetVisionInterface().GetKnown(attacker).Address != Address_Null);
 	
-	if(!bIsKnownAttacker)
-	{
+	if(!bIsKnownAttacker) {
 		npc.GetVisionInterface().AddKnownEntity(attacker);
 	}
 	
