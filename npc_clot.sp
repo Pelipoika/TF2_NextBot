@@ -319,6 +319,12 @@ methodmap CBaseActor < CVision
 		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flJumpStartTime", buff, true); }
 	}
 	
+	property float m_flNextThinkTime
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("m_flNextThinkTime"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextThinkTime", buff, true); }
+	}
+	
 	public Address GetLocomotionInterface() { return SDKCall(g_hGetLocomotionInterface, SDKCall(g_hMyNextBotPointer, this.index)); }
 	public Address GetBodyInterface()       { return SDKCall(g_hGetBodyInterface,       SDKCall(g_hMyNextBotPointer, this.index)); }
 	public CVision GetVisionInterface()     { return SDKCall(g_hGetVisionInterface,     SDKCall(g_hMyNextBotPointer, this.index)); }	
@@ -428,7 +434,7 @@ methodmap CBaseActor < CVision
 	{
 		PF_Create(this.index, flStep, flJump, flDrop, 0.6, iSolid, flAhead, flRePath, flHull);
 		PF_EnableCallback(this.index, PFCB_Approach,        PluginBot_Approach);
-		//PF_EnableCallback(this.index, PFCB_GetPathCost,     PluginBot_PathCost);
+		PF_EnableCallback(this.index, PFCB_GetPathCost,     PluginBot_PathCost);
 		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge,  PluginBot_Jump);
 		PF_EnableCallback(this.index, PFCB_OnMoveToSuccess, PluginBot_MoveToSuccess);
 		PF_EnableCallback(this.index, PFCB_PathFailed,      PluginBot_MoveToFailure);
@@ -441,7 +447,7 @@ methodmap CBaseActor < CVision
 		ConVar flTurnRate = FindConVar("tf_base_boss_max_turn_rate");
 		float flPrevValue = flTurnRate.FloatValue;
 		
-		flTurnRate.FloatValue = 200.0;
+		flTurnRate.FloatValue = 250.0;
 		SDKCall(g_hFaceTowards, this.GetLocomotionInterface(), vecGoal);
 		flTurnRate.FloatValue = flPrevValue;
 	}	
@@ -743,18 +749,31 @@ methodmap Clot < CClotBody
 		#endif
 	}
 
-	public void PlayMeleeMissSound() {
-		PrecacheSound(")npc/fast_zombie/claw_miss1.wav");
-		PrecacheSound(")npc/fast_zombie/claw_miss2.wav");
-		
-		switch(GetRandomInt(1, 2))
-		{
-			case 1: EmitSoundToAll(")npc/fast_zombie/claw_miss1.wav", this.index, SNDCHAN_STATIC, 160, _, 1.0, GetRandomInt(95, 105));
-			case 2: EmitSoundToAll(")npc/fast_zombie/claw_miss2.wav", this.index, SNDCHAN_STATIC, 160, _, 1.0, GetRandomInt(95, 105));
+	public void PlayMeleeMissSound(bool bHitWorld) {
+		if(bHitWorld) {
+			PrecacheSound(")npc/fast_zombie/claw_strike1.wav");
+			PrecacheSound(")npc/fast_zombie/claw_strike2.wav");
+			PrecacheSound(")npc/fast_zombie/claw_strike3.wav");
+			
+			switch(GetRandomInt(1, 3))
+			{
+				case 1: EmitSoundToAll(")npc/fast_zombie/claw_strike1.wav", this.index, SNDCHAN_STATIC, 160, _, 1.0, GetRandomInt(95, 105));
+				case 2: EmitSoundToAll(")npc/fast_zombie/claw_strike2.wav", this.index, SNDCHAN_STATIC, 160, _, 1.0, GetRandomInt(95, 105));
+				case 3: EmitSoundToAll(")npc/fast_zombie/claw_strike3.wav", this.index, SNDCHAN_STATIC, 160, _, 1.0, GetRandomInt(95, 105));
+			}
+		} else {
+			PrecacheSound(")npc/fast_zombie/claw_miss1.wav");
+			PrecacheSound(")npc/fast_zombie/claw_miss2.wav");
+			
+			switch(GetRandomInt(1, 2))
+			{
+				case 1: EmitSoundToAll(")npc/fast_zombie/claw_miss1.wav", this.index, SNDCHAN_STATIC, 160, _, 1.0, GetRandomInt(95, 105));
+				case 2: EmitSoundToAll(")npc/fast_zombie/claw_miss2.wav", this.index, SNDCHAN_STATIC, 160, _, 1.0, GetRandomInt(95, 105));
+			}
 		}
 		
 		#if defined DEBUG_SOUND
-		PrintToServer("CClot::PlayMeleeMissSound()");
+		PrintToServer("CGoreFast::PlayMeleeMissSound()");
 		#endif
 	}
 	
@@ -826,6 +845,13 @@ methodmap Clot < CClotBody
 public void ClotThink(int iNPC)
 {
 	Clot npc = view_as<Clot>(iNPC);
+	
+	//Think throttling
+	if(npc.m_flNextThinkTime > GetGameTime())
+		return;
+	
+	npc.m_flNextThinkTime = GetGameTime() + 0.03;
+	
 	npc.Update();
 	
 	CKnownEntity PrimaryThreat = npc.GetVisionInterface().GetPrimaryKnownThreat();
@@ -854,8 +880,6 @@ public void ClotThink(int iNPC)
 			{
 				//Look at target so we hit.
 				npc.FaceTowards(vecTarget);
-				
-				//PrintToServer("%i", npc.IsPlayingGesture("Melee_Swing_01"));
 				
 				//Can we attack right now?
 				if(npc.m_flNextMeleeAttack < GetGameTime() && !npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST"))
@@ -889,7 +913,7 @@ public void ClotThink(int iNPC)
 							}
 						} else {
 							// Miss
-							npc.PlayMeleeMissSound();
+							npc.PlayMeleeMissSound(target != -1);
 							
 							// Hit particle if we hit something.
 							if(target >= 0) {
@@ -1370,7 +1394,7 @@ public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, 
 public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)   { DHookSetReturn(hReturn, false);  return MRES_Supercede; }
 public MRESReturn CTFBaseBoss_GetCurrencyValue(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturn(hReturn, 0);      return MRES_Supercede; }
-public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 800.0);  return MRES_Supercede; }
+public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 1000.0);  return MRES_Supercede; }
 
 public MRESReturn ILocomotion_GetRunSpeed(Address pThis, Handle hReturn, Handle hParams)              
 { 
