@@ -269,6 +269,27 @@ public void ClotThink(int iNPC)
 			
 			float flDistanceToTarget = GetVectorDistance(vecTarget, WorldSpaceCenter(npc.index));
 			
+			//Predict their pos.
+			if(flDistanceToTarget < npc.GetLeadRadius()) {
+				
+				float vPredictedPos[3]; vPredictedPos = PredictSubjectPosition(npc, PrimaryThreatIndex);
+				
+			/*	int color[4];
+				color[0] = 255;
+				color[1] = 255;
+				color[2] = 0;
+				color[3] = 255;
+			
+				int xd = PrecacheModel("materials/sprites/laserbeam.vmt");
+			
+				TE_SetupBeamPoints(vPredictedPos, vecTarget, xd, xd, 0, 0, 0.25, 0.5, 0.5, 5, 5.0, color, 30);
+				TE_SendToAllInRange(vecTarget, RangeType_Visibility);*/
+				
+				PF_SetGoalVector(npc.index, vPredictedPos);
+			} else {
+				PF_SetGoalEntity(npc.index, PrimaryThreatIndex);
+			}
+			
 			//Target close enough to hit
 			if(flDistanceToTarget < 100.0)
 			{
@@ -680,6 +701,92 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	}
 	
 	return Plugin_Continue;
+}
+
+
+stock float[] PredictSubjectPosition(Clot npc, int subject)
+{
+	float botPos[3];
+	GetEntPropVector(npc.index, Prop_Data, "m_vecAbsOrigin", botPos);
+	
+	float subjectPos[3];
+	GetEntPropVector(subject, Prop_Data, "m_vecAbsOrigin", subjectPos);
+	
+	float to[3];
+	SubtractVectors(subjectPos, botPos, to);
+	to[2] = 0.0;
+	
+	float flRangeSq = GetVectorLength(to, true);
+
+	// don't lead if subject is very far away
+	float flLeadRadiusSq = npc.GetLeadRadius(); 
+	flLeadRadiusSq *= flLeadRadiusSq;
+	if ( flRangeSq > flLeadRadiusSq )
+		return subjectPos;
+	
+	// Normalize in place
+	float range = SquareRoot( flRangeSq );
+	to[0] /= ( range + 0.0001 );	// avoid divide by zero
+	to[1] /= ( range + 0.0001 );	// avoid divide by zero
+	to[2] /= ( range + 0.0001 );	// avoid divide by zero
+	
+	// estimate time to reach subject, assuming maximum speed
+	float leadTime = 0.5 + ( range / ( npc.GetRunSpeed() + 0.0001 ) );
+	
+	// estimate amount to lead the subject	
+	float SubjectAbsVelocity[3];
+	GetEntPropVector(subject, Prop_Data, "m_vecAbsVelocity", SubjectAbsVelocity);
+	float lead[3];	
+	lead[0] = leadTime * SubjectAbsVelocity[0];
+	lead[1] = leadTime * SubjectAbsVelocity[1];
+	lead[2] = 0.0;	
+
+	if(GetVectorDotProduct(to, lead) < 0.0)
+	{
+		// the subject is moving towards us - only pay attention 
+		// to his perpendicular velocity for leading
+		float to2D[3]; to2D = to;
+		to2D[2] = 0.0;
+		NormalizeVector(to2D, to2D);
+		
+		float perp[2];
+		perp[0] = -to2D[1];
+		perp[1] = to2D[0];
+
+		float enemyGroundSpeed = lead[0] * perp[0] + lead[1] * perp[1];
+
+		lead[0] = enemyGroundSpeed * perp[0];
+		lead[1] = enemyGroundSpeed * perp[1];
+	}
+
+	// compute our desired destination
+	float pathTarget[3];
+	AddVectors(subjectPos, lead, pathTarget);
+
+	// validate this destination
+
+	// don't lead through walls
+	if (GetVectorLength(lead, true) > 36.0)
+	{
+		float fraction;
+		if (!PF_IsPotentiallyTraversable( npc.index, subjectPos, pathTarget, IMMEDIATELY, fraction))
+		{
+			// tried to lead through an unwalkable area - clip to walkable space
+			pathTarget[0] = subjectPos[0] + fraction * ( pathTarget[0] - subjectPos[0] );
+			pathTarget[1] = subjectPos[1] + fraction * ( pathTarget[1] - subjectPos[1] );
+			pathTarget[2] = subjectPos[2] + fraction * ( pathTarget[2] - subjectPos[2] );
+		}
+	}
+	
+	NavArea leadArea = TheNavMesh.GetNearestNavArea_Vec( pathTarget );
+	
+	if (leadArea == NavArea_Null || leadArea.GetZ(pathTarget[0], pathTarget[1]) < pathTarget[2] - npc.GetMaxJumpHeight())
+	{
+		// would fall off a cliff
+		return subjectPos;	
+	}
+	
+	return pathTarget;
 }
 
 public bool FilterBaseActorsAndData(int entity, int contentsMask, any data)
