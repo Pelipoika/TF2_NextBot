@@ -9,7 +9,6 @@
 #define EF_BONEMERGE                (1 << 0)
 #define EF_PARENT_ANIMATES          (1 << 9)
 
-
 enum ParticleAttachment
 {
 	PATTACH_ABSORIGIN = 0,			// Create at absorigin, but don't follow
@@ -60,6 +59,10 @@ Handle g_hSetBodyGroup;
 Handle g_hSelectWeightedSequence;
 Handle g_hResetSequenceInfo;
 
+//Death
+Handle g_hNextBotCombatCharacter_Event_Killed;
+Handle g_hCBaseCombatCharacter_Event_Killed;
+
 //Stuck detection
 Handle g_hStuckMonitor;
 Handle g_hClearStuckStatus;
@@ -70,7 +73,8 @@ Handle g_hGetEntity;
 Handle g_hGetBot;
 
 //DHooks
-Handle g_hGetCurrencyValue;
+//Handle g_hGetCurrencyValue;
+Handle g_hEvent_Killed;
 Handle g_hHandleAnimEvent;
 Handle g_hGetFrictionSideways;
 Handle g_hGetStepHeight;
@@ -174,7 +178,10 @@ methodmap CBaseActor < CVision
 		DHookRaw(g_hStartActivity,       true, pBody);
 		
 		//Don't drop money.
-		DHookEntity(g_hGetCurrencyValue, true, npc);
+		//DHookEntity(g_hGetCurrencyValue, true, npc);
+		
+		//Ragdoll, hopefully
+		DHookEntity(g_hEvent_Killed,     false, npc);
 		
 		//Animevents 
 		DHookEntity(g_hHandleAnimEvent,  true, npc);
@@ -268,6 +275,8 @@ methodmap CBaseActor < CVision
 	
 	public Address GetModelPtr()
 	{
+		//const int offset = FindSendPropInfo("CBaseAnimating", "m_flFadeScale ") + 28;
+		
 		if(IsValidEntity(this.index)) {
 			return view_as<Address>(GetEntData(this.index, 283 * 4));
 		}
@@ -290,7 +299,8 @@ methodmap CBaseActor < CVision
 			
 		return SDKCall(g_hStudio_FindAttachment, pStudioHdr, pAttachmentName) + 1;
 	}
-	public void DispatchParticleEffect(int entity, const char[] strParticle, float flStartPos[3], float flEndPos[3], bool bResetAllParticlesOnEntity = false)
+	public void DispatchParticleEffect(int entity, const char[] strParticle, float flStartPos[3], float vecAngles[3], float flEndPos[3], 
+									   int iAttachmentPointIndex = 0, ParticleAttachment iAttachType = PATTACH_CUSTOMORIGIN, bool bResetAllParticlesOnEntity = false)
 	{
 		int tblidx = FindStringTable("ParticleEffectNames");
 		if (tblidx == INVALID_STRING_TABLE) 
@@ -320,13 +330,14 @@ methodmap CBaseActor < CVision
 		TE_WriteFloat("m_vecOrigin[0]", flStartPos[0]);
 		TE_WriteFloat("m_vecOrigin[1]", flStartPos[1]);
 		TE_WriteFloat("m_vecOrigin[2]", flStartPos[2]);
+		TE_WriteVector("m_vecAngles", vecAngles);
 		TE_WriteNum("m_iParticleSystemIndex", stridx);
 		TE_WriteNum("entindex", entity);
-		TE_WriteNum("m_iAttachType", 2);
-		TE_WriteNum("m_iAttachmentPointIndex", 0);
+		TE_WriteNum("m_iAttachType", view_as<int>(iAttachType));
+		TE_WriteNum("m_iAttachmentPointIndex", iAttachmentPointIndex);
 		TE_WriteNum("m_bResetParticles", bResetAllParticlesOnEntity);    
-		TE_WriteNum("m_bControlPoint1", 1);    
-		TE_WriteNum("m_ControlPoint1.m_eParticleAttachment", 5);  
+		TE_WriteNum("m_bControlPoint1", 0);    
+		TE_WriteNum("m_ControlPoint1.m_eParticleAttachment", 0);  
 		TE_WriteFloat("m_ControlPoint1.m_vecOffset[0]", flEndPos[0]);
 		TE_WriteFloat("m_ControlPoint1.m_vecOffset[1]", flEndPos[1]);
 		TE_WriteFloat("m_ControlPoint1.m_vecOffset[2]", flEndPos[2]);
@@ -868,10 +879,22 @@ public void InitGamedata()
 	PrepSDKCall_SetReturnInfo(SDKType_CBaseEntity, SDKPass_Pointer);
 	if((g_hGetEntity = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for INextBotComponent::GetEntity!");
 	
+	//
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "NextBotCombatCharacter::Event_Killed");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Pointer);
+	if((g_hNextBotCombatCharacter_Event_Killed = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for NextBotCombatCharacter::Event_Killed!");
+	
+	//Get NextBot entity index
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseCombatCharacter::Event_Killed");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Pointer);
+	if((g_hCBaseCombatCharacter_Event_Killed = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for CBaseCombatCharacter::Event_Killed!");
+	
 	
 	//DHooks
 	g_hHandleAnimEvent = DHookCreateEx(hConf, "CBaseAnimating::HandleAnimEvent",  HookType_Entity, ReturnType_Void,   ThisPointer_CBaseEntity, CBaseAnimating_HandleAnimEvent);
-	DHookAddParam(g_hHandleAnimEvent, HookParamType_ObjectPtr, -1);
+	DHookAddParam(g_hHandleAnimEvent, HookParamType_ObjectPtr);
 	
 	g_hGetFrictionSideways = DHookCreateEx(hConf, "ILocomotion::GetFrictionSideways",HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetFrictionSideways);
 	g_hGetStepHeight       = DHookCreateEx(hConf, "ILocomotion::GetStepHeight",      HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetStepHeight);	
@@ -897,7 +920,9 @@ public void InitGamedata()
 	DHookAddParam(g_hStartActivity, HookParamType_Int);
 	DHookAddParam(g_hStartActivity, HookParamType_Int);
 
-	g_hGetCurrencyValue    = DHookCreateEx(hConf, "CTFBaseBoss::GetCurrencyValue",   HookType_Entity, ReturnType_Int,    ThisPointer_Address, CTFBaseBoss_GetCurrencyValue);
+	//g_hGetCurrencyValue = DHookCreateEx(hConf, "CTFBaseBoss::GetCurrencyValue",   HookType_Entity, ReturnType_Int,  ThisPointer_Address,     CTFBaseBoss_GetCurrencyValue);
+	g_hEvent_Killed = DHookCreateEx(hConf, "CTFBaseBoss::Event_Killed", HookType_Entity, ReturnType_Void, ThisPointer_CBaseEntity, CTFBaseBoss_Event_Killed);
+	DHookAddParam(g_hEvent_Killed, HookParamType_Int); //( const CTakeDamageInfo &info )
 
 	delete hConf;
 }
@@ -914,6 +939,19 @@ Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType 
 	return DHookCreate(iOffset, hooktype, returntype, thistype, callback);
 }
 
+//Ragdoll.
+public MRESReturn CTFBaseBoss_Event_Killed(int pThis, Handle hParams)
+{
+	Address CTakeDamageInfo = DHookGetParam(hParams, 1);
+
+	//PrintToServer("CTFBaseBoss::Event_Killed(%i, 0x%X)", pThis, CTakeDamageInfo);
+	
+	SDKCall(g_hNextBotCombatCharacter_Event_Killed, pThis, CTakeDamageInfo);
+	SDKCall(g_hCBaseCombatCharacter_Event_Killed,   pThis, CTakeDamageInfo);
+	
+	return MRES_Supercede;
+}
+
 public MRESReturn CBaseAnimating_HandleAnimEvent(int pThis, Handle hParams)
 {
 	#if defined DEBUG_ANIMATION
@@ -924,7 +962,7 @@ public MRESReturn CBaseAnimating_HandleAnimEvent(int pThis, Handle hParams)
 
 public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Handle hParams)     { DHookSetReturnVector(hReturn,    view_as<float>( { 0.0, 0.0, 1.0 } ));  return MRES_Supercede; }
 public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 18.0);	return MRES_Supercede; }
-public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 2000.0);  return MRES_Supercede; }
+public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 1000.0); return MRES_Supercede; }
 public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
 
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)   
@@ -945,7 +983,7 @@ public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, H
 	return MRES_Ignored; 
 }
 
-public MRESReturn CTFBaseBoss_GetCurrencyValue(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturn(hReturn, 0);       return MRES_Supercede; }
+//public MRESReturn CTFBaseBoss_GetCurrencyValue(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturn(hReturn, 0);       return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 1000.0);  return MRES_Supercede; }
 
 
