@@ -195,11 +195,6 @@
 				"windows"	"\x55\x8B\xEC\x56\x57\x8B\x7D\x08\x8B\xF1\x8B\x4F\x28"
 			}
 			
-			"NextBotCombatCharacter::Event_Killed" //(NextBotCombatCharacter *this, const CTakeDamageInfo *a2)
-			{
-				"windows"	"\x55\x8B\xEC\x56\x57\x8B\x7D\x08\x8B\xF1\x8B\x4F\x28"
-			}
-			
 			// STR: "BaseCombatCharacter.StopWeaponSounds", "KilledNPC", "item_healthvial"
 			"CBaseCombatCharacter::Event_Killed" //(CBaseCombatCharacter *this, const CTakeDamageInfo *a2)
 			{
