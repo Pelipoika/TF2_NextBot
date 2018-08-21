@@ -12,16 +12,16 @@
 
 #pragma newdecls required;
 
-#define GORE_ABDOMEN      (1 << 0)
-#define GORE_FOREARMLEFT  (1 << 1)
-#define GORE_HANDRIGHT    (1 << 2)
-#define GORE_FOREARMRIGHT (1 << 3)
-#define GORE_HEAD         (1 << 4)
-#define GORE_HEADLEFT     (1 << 5)
-#define GORE_HEADRIGHT    (1 << 6)
-#define GORE_UPARMLEFT    (1 << 7)
-#define GORE_UPARMRIGHT   (1 << 8)
-#define GORE_HANDLEFT     (1 << 9)
+#define GORE_HEAD         (1 << 0)
+#define GORE_HEADLEFT     (1 << 1)
+#define GORE_HEADRIGHT    (1 << 2)
+#define GORE_HANDLEFT     (1 << 3)
+#define GORE_HANDRIGHT    (1 << 4)
+#define GORE_UPARMLEFT    (1 << 5)
+#define GORE_UPARMRIGHT   (1 << 6)
+#define GORE_FOREARMLEFT  (1 << 7)
+#define GORE_FOREARMRIGHT (1 << 8)
+#define GORE_ABDOMEN      (1 << 9)
 
 char g_DeathSounds[][] = {
 	")gorefast/gorefast_death_01.wav",
@@ -275,6 +275,14 @@ methodmap Clot < CClotBody
 //Rewrite
 public void ClotThink(int iNPC)
 {
+	if(GetEntProp(iNPC, Prop_Data, "m_lifeState") == 1)
+	{
+		SDKUnhook(iNPC, SDKHook_Think, ClotThink);
+		SDKUnhook(iNPC, SDKHook_TraceAttack, ClotDamaged);
+		
+		return;
+	}
+
 	Clot npc = view_as<Clot>(iNPC);
 	
 	//Think throttling
@@ -763,6 +771,70 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	
 	Clot npc = view_as<Clot>(victim);
 	
+	Action result = Plugin_Continue;
+	int nBody = GetEntProp(npc.index, Prop_Send, "m_nBody");
+	
+	//Headshots always crit
+	if(hitgroup == HITGROUP_HEAD)
+	{
+		if(damage > GetEntProp(npc.index, Prop_Data, "m_iHealth"))
+		{
+			//Remove head on big head ache
+			nBody |= (GORE_HEADRIGHT | GORE_HEADLEFT | GORE_HEAD);
+		}
+		else
+		{
+			//Randomized brain damage
+			switch(GetRandomInt(1, 3))
+			{
+				case 1:
+				{
+					if ((nBody & GORE_HEADRIGHT)     != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
+					else if ((nBody & GORE_HEADLEFT) != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
+					else if ((nBody & GORE_HEAD)     != GORE_HEAD)      nBody |= GORE_HEAD;
+				}
+				case 2:
+				{
+					if ((nBody & GORE_HEADLEFT)       != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
+					else if ((nBody & GORE_HEADRIGHT) != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
+					else if ((nBody & GORE_HEAD)      != GORE_HEAD)      nBody |= GORE_HEAD;
+				}
+				case 3: 
+				{
+					if ((nBody & GORE_HEAD)           != GORE_HEAD)      nBody |= GORE_HEAD;
+					else if ((nBody & GORE_HEADLEFT)  != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
+					else if ((nBody & GORE_HEADRIGHT) != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
+				}
+			}
+		}
+		
+		//Unless they don't have a head...
+		if(!npc.IsDecapitated())
+		{
+			if(!npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST"))
+			{
+				npc.AddGesture("ACT_MP_GESTURE_FLINCH_CHEST");
+				npc.PlayHurtSound();
+			}
+			
+			npc.DispatchParticleEffect(npc.index, "crit_text", NULL_VECTOR, NULL_VECTOR, NULL_VECTOR, npc.FindAttachment("gore_headfrontright"), PATTACH_POINT_FOLLOW, true);
+			damagetype |= DMG_CRIT;
+		}
+	
+		result = Plugin_Changed;
+	}
+	else
+	{
+		if(!npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST"))
+		{
+			npc.AddGesture("ACT_MP_GESTURE_FLINCH_CHEST");
+			npc.PlayHurtSound();
+		}
+	}
+	
+	SetEntProp(npc.index, Prop_Send, "m_nBody", nBody);
+	
+	//Percentage of damage taken vs our health
 	float flDamagePercentage = (damage / GetEntProp(npc.index, Prop_Data, "m_iMaxHealth") * 100);
 	
 	//I got hit with over 50% of my max health damage
@@ -773,35 +845,6 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 		npc.m_bStunned = true;
 		npc.m_flStunEndTime = GetGameTime() + GetRandomFloat(5.0, 6.0);
 	}
-	
-	//PrintToServer("flDamagePercentage %f", flDamagePercentage);
-	
-	int nBody = GetEntProp(npc.index, Prop_Send, "m_nBody");
-	
-	//Randomized brain damage
-	switch(GetRandomInt(1, 3))
-	{
-		case 1:
-		{
-			if ((nBody & GORE_HEADRIGHT)     != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
-			else if ((nBody & GORE_HEADLEFT) != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
-			else if ((nBody & GORE_HEAD)     != GORE_HEAD)      nBody |= GORE_HEAD;
-		}
-		case 2:
-		{
-			if ((nBody & GORE_HEADLEFT)       != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
-			else if ((nBody & GORE_HEADRIGHT) != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
-			else if ((nBody & GORE_HEAD)      != GORE_HEAD)      nBody |= GORE_HEAD;
-		}
-		case 3: 
-		{
-			if ((nBody & GORE_HEAD)           != GORE_HEAD)      nBody |= GORE_HEAD;
-			else if ((nBody & GORE_HEADLEFT)  != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
-			else if ((nBody & GORE_HEADRIGHT) != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
-		}
-	}
-	
-	SetEntProp(npc.index, Prop_Send, "m_nBody", nBody);
 
 	bool bIsKnownAttacker = (npc.GetVisionInterface().GetKnown(attacker).Address != Address_Null);
 	
@@ -810,14 +853,8 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 		npc.GetVisionInterface().AddKnownEntity(attacker);
 	}
 	
-	if(!npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST")) {
-		npc.AddGesture("ACT_MP_GESTURE_FLINCH_CHEST");
-		npc.PlayHurtSound();
-	}
-	
-	return Plugin_Continue;
+	return result;
 }
-
 
 stock float[] PredictSubjectPosition(Clot npc, int subject)
 {
