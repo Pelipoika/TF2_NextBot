@@ -290,6 +290,11 @@
 				"windows"	"49"
 				"linux"		"50"
 			}
+			"INextBot::GetIntentionInterface"
+			{
+				"windows"	"50"
+				"linux"		"51"
+			}
 			"INextBot::GetVisionInterface"
 			{
 				"windows"	"51"
@@ -451,6 +456,12 @@
 			{
 				"windows"	"84"
 				"linux"		"85"
+			}
+			
+			"INextBotEventResponder::OnAnimationActivityComplete"
+			{
+				"windows"	"11"
+				"linux"		"12"
 			}
 			
 			"IVision::GetPrimaryKnownThreat"

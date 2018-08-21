@@ -272,7 +272,7 @@ public void OnBotThink(int iEntity)
 	SDKCall(g_hDispatchAnimEvents, iEntity, iEntity);
 }
 
-public bool PluginBot_Traversible(int bot_entidx, int other_entidx) { return true; }
+public bool PluginBot_Traversible(int bot_entidx, int other_entidx, TraverseWhenType when) { return true; }
 
 public void PluginBot_PathFailed(int bot_entidx) 
 {

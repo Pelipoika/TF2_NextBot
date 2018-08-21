@@ -24,6 +24,7 @@ enum ParticleAttachment
 //SDKCalls
 Handle g_hMyNextBotPointer;
 Handle g_hGetLocomotionInterface;
+Handle g_hGetIntentionInterface;
 Handle g_hGetBodyInterface;
 Handle g_hGetVisionInterface;
 Handle g_hGetPrimaryKnownThreat;
@@ -150,8 +151,8 @@ methodmap CBaseActor < CVision
 		DispatchKeyValue(npc,       "health",     health);
 		DispatchSpawn(npc);
 		
-		Address pNB =         SDKCall(g_hMyNextBotPointer,        npc);
-		Address pLocomotion = SDKCall(g_hGetLocomotionInterface,  pNB);
+		Address pNB =         SDKCall(g_hMyNextBotPointer,       npc);
+		Address pLocomotion = SDKCall(g_hGetLocomotionInterface, pNB);
 		
 		DHookRaw(g_hGetStepHeight,       true, pLocomotion);
 		DHookRaw(g_hGetGravity,          true, pLocomotion);
@@ -161,8 +162,8 @@ methodmap CBaseActor < CVision
 		DHookRaw(g_hGetRunSpeed,         true, pLocomotion);
 		
 		if(bGroundNormal)
-			DHookRaw(g_hGetGroundNormal, true, pLocomotion)
-		
+			DHookRaw(g_hGetGroundNormal, true, pLocomotion);
+
 		Address pBody = SDKCall(g_hGetBodyInterface, pNB);
 		
 		DHookRaw(g_hGetHullWidth,        true, pBody);
@@ -267,6 +268,7 @@ methodmap CBaseActor < CVision
 	}
 	
 	public Address GetLocomotionInterface() { return SDKCall(g_hGetLocomotionInterface, SDKCall(g_hMyNextBotPointer, this.index)); }
+	public Address GetIntentionInterface()  { return SDKCall(g_hGetIntentionInterface,  SDKCall(g_hMyNextBotPointer, this.index)); }
 	public Address GetBodyInterface()       { return SDKCall(g_hGetBodyInterface,       SDKCall(g_hMyNextBotPointer, this.index)); }
 	public CVision GetVisionInterface()     { return SDKCall(g_hGetVisionInterface,     SDKCall(g_hMyNextBotPointer, this.index)); }	
 	
@@ -463,6 +465,15 @@ methodmap CBaseActor < CVision
 	public void DispatchAnimEvents() { SDKCall(g_hDispatchAnimEvents, this.index, this.index); }
 }
 
+enum ActivityType 
+{ 
+	MOTION_CONTROLLED_XY	= 0x0001,	// XY position and orientation of the bot is driven by the animation.
+	MOTION_CONTROLLED_Z		= 0x0002,	// Z position of the bot is driven by the animation.
+	ACTIVITY_UNINTERRUPTIBLE= 0x0004,	// activity can't be changed until animation finishes
+	ACTIVITY_TRANSITORY		= 0x0008,	// a short animation that takes over from the underlying animation momentarily, resuming it upon completion
+	ENTINDEX_PLAYBACK_RATE	= 0x0010,	// played back at different rates based on entindex
+};
+
 methodmap CClotBody < CBaseActor
 {	
 	property int m_iActivity
@@ -594,6 +605,20 @@ methodmap CClotBody < CBaseActor
 		
 		this.SetCycle(0.0);
 	}
+	
+	public bool IsSequenceFinished()
+	{
+		return !!GetEntProp(this.index, Prop_Data, "m_bSequenceFinished");
+	}
+	
+	public void OnAnimationActivityComplete(int iActivity)
+	{
+		#if defined DEBUG_ANIMATION
+		PrintToServer("CClotBody::OnAnimationActivityComplete(%i)", iActivity);
+		#endif
+		
+		
+	}
 }
 
 
@@ -646,6 +671,11 @@ public void InitGamedata()
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "INextBot::GetLocomotionInterface");
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 	if((g_hGetLocomotionInterface = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for INextBot::GetLocomotionInterface!");
+	
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "INextBot::GetIntentionInterface");
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	if((g_hGetIntentionInterface = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Virtual Call for INextBot::GetIntentionInterface!");
 	
 	StartPrepSDKCall(SDKCall_Raw);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "INextBot::GetBodyInterface");
@@ -903,10 +933,9 @@ public void InitGamedata()
 	g_hGetGroundNormal     = DHookCreateEx(hConf, "ILocomotion::GetGroundNormal",    HookType_Raw, ReturnType_VectorPtr, ThisPointer_Address, ILocomotion_GetGroundNormal);
 	g_hGetMaxAcceleration  = DHookCreateEx(hConf, "ILocomotion::GetMaxAcceleration", HookType_Raw, ReturnType_Float,     ThisPointer_Address, ILocomotion_GetMaxAcceleration);
 	
-	
 	g_hShouldCollideWith = DHookCreateEx(hConf, "ILocomotion::ShouldCollideWith",  HookType_Raw, ReturnType_Bool, ThisPointer_Address, ILocomotion_ShouldCollideWith);
 	DHookAddParam(g_hShouldCollideWith, HookParamType_CBaseEntity);
-	
+
 	g_hGetSolidMask        = DHookCreateEx(hConf, "IBody::GetSolidMask",       HookType_Raw, ReturnType_Int,   ThisPointer_Address, IBody_GetSolidMask);
 	g_hGetActivity         = DHookCreateEx(hConf, "IBody::GetActivity",        HookType_Raw, ReturnType_Int,   ThisPointer_Address, IBody_GetActivity);
 	g_hGetHullWidth        = DHookCreateEx(hConf, "IBody::GetHullWidth",       HookType_Raw, ReturnType_Float, ThisPointer_Address, IBody_GetHullWidth);
@@ -943,7 +972,8 @@ Handle DHookCreateEx(Handle gc, const char[] key, HookType hooktype, ReturnType 
 public MRESReturn CTFBaseBoss_Event_Killed(int pThis, Handle hParams)
 {
 	Address CTakeDamageInfo = DHookGetParam(hParams, 1);
-
+	
+	//CTakeDamageInfo -= view_as<Address>(16*4);
 	//PrintToServer("CTFBaseBoss::Event_Killed(%i, 0x%X)", pThis, CTakeDamageInfo);
 	
 	SDKCall(g_hNextBotCombatCharacter_Event_Killed, pThis, CTakeDamageInfo);
@@ -964,7 +994,6 @@ public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Han
 public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 18.0);	return MRES_Supercede; }
 public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 1000.0); return MRES_Supercede; }
 public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
-
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)   
 { 
 	int otherindex = DHookGetParam(hParams, 1);
@@ -985,7 +1014,6 @@ public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, H
 
 //public MRESReturn CTFBaseBoss_GetCurrencyValue(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturn(hReturn, 0);       return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 1000.0);  return MRES_Supercede; }
-
 
 public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, 26.0); return MRES_Supercede; }
 public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 82.0); return MRES_Supercede; }

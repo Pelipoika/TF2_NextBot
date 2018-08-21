@@ -12,34 +12,45 @@
 
 #pragma newdecls required;
 
+#define GORE_ABDOMEN      (1 << 0)
+#define GORE_FOREARMLEFT  (1 << 1)
+#define GORE_HANDRIGHT    (1 << 2)
+#define GORE_FOREARMRIGHT (1 << 3)
+#define GORE_HEAD         (1 << 4)
+#define GORE_HEADLEFT     (1 << 5)
+#define GORE_HEADRIGHT    (1 << 6)
+#define GORE_UPARMLEFT    (1 << 7)
+#define GORE_UPARMRIGHT   (1 << 8)
+#define GORE_HANDLEFT     (1 << 9)
+
 char g_DeathSounds[][] = {
-	"clot/clot_death_01.wav",
-	"clot/clot_death_02.wav",
-	"clot/clot_death_03.wav",
+	")clot/clot_death_01.wav",
+	")clot/clot_death_02.wav",
+	")clot/clot_death_03.wav",
 };
 
 char g_HurtSounds[][] = {
-	"clot/clot_hurt_01.wav",
-	"clot/clot_hurt_02.wav",
-	"clot/clot_hurt_03.wav",
+	")clot/clot_hurt_01.wav",
+	")clot/clot_hurt_02.wav",
+	")clot/clot_hurt_03.wav",
 	//Not sure what these are for
-	"clot/clot_grunt_01.wav",
-	"clot/clot_grunt_02.wav",
-	"clot/clot_grunt_03.wav",
-	"clot/clot_grunt_04.wav",
+	")clot/clot_grunt_01.wav",
+	")clot/clot_grunt_02.wav",
+	")clot/clot_grunt_03.wav",
+	")clot/clot_grunt_04.wav",
 };
 
 char g_IdleSounds[][] = {
-	"clot/clot_idle_raspy_01.wav",
-	"clot/clot_idle_raspy_02.wav",
-	"clot/clot_idle_raspy_03.wav",
+	")clot/clot_idle_raspy_01.wav",
+	")clot/clot_idle_raspy_02.wav",
+	")clot/clot_idle_raspy_03.wav",
 };
 
 char g_IdleAlertedSounds[][] = {
-	"clot/clot_roar_01.wav",
-	"clot/clot_roar_02.wav",
-	"clot/clot_roar_03.wav",
-	"clot/clot_roar_04.wav",
+	")clot/clot_roar_01.wav",
+	")clot/clot_roar_02.wav",
+	")clot/clot_roar_03.wav",
+	")clot/clot_roar_04.wav",
 };
 
 char g_MeleeHitSounds[][] = {
@@ -84,9 +95,39 @@ methodmap Clot < CClotBody
 		public get()                 { return this.ExtractStringValueAsFloat("m_flNextHurtSound"); }
 		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextHurtSound", buff, true); }
 	}
+	property float m_flNextBloodSpray
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("m_flNextBloodSpray"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextBloodSpray", buff, true); }
+	}
+	
+	//Stun
+	property bool m_bStunned
+	{
+		public get()            { return !!this.ExtractStringValueAsInt("m_bStunned"); }
+		public set(bool bOnOff) { char buff[8]; IntToString(bOnOff, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_bStunned", buff, true); }
+	}
+	property int m_iStunState
+	{
+		public get()              { return this.ExtractStringValueAsInt("m_iStunState"); }
+		public set(int iActivity) { char buff[8]; IntToString(iActivity, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_iStunState", buff, true); }
+	}
+	property float m_flStunEndTime
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("m_flStunEndTime"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flStunEndTime", buff, true); }
+	}
+	
+	public bool IsDecapitated()
+	{
+		int nBody = GetEntProp(this.index, Prop_Send, "m_nBody");
+		int nNoHeadMask = (GORE_HEADRIGHT | GORE_HEADLEFT | GORE_HEAD);
+		
+		return ((nBody & nNoHeadMask) == nNoHeadMask);
+	}
 	
 	public void PlayIdleSound() {
-		if(this.m_flNextIdleSound > GetGameTime())
+		if(this.m_flNextIdleSound > GetGameTime() || this.IsDecapitated())
 			return;
 		
 		EmitSoundToAll(g_IdleSounds[GetRandomInt(0, sizeof(g_IdleSounds) - 1)], this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
@@ -98,7 +139,7 @@ methodmap Clot < CClotBody
 	}
 	
 	public void PlayIdleAlertSound() {
-		if(this.m_flNextIdleSound > GetGameTime())
+		if(this.m_flNextIdleSound > GetGameTime() || this.IsDecapitated())
 			return;
 		
 		EmitSoundToAll(g_IdleAlertedSounds[GetRandomInt(0, sizeof(g_IdleAlertedSounds) - 1)], this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
@@ -110,7 +151,7 @@ methodmap Clot < CClotBody
 	}
 	
 	public void PlayHurtSound() {
-		if(this.m_flNextHurtSound > GetGameTime())
+		if(this.m_flNextHurtSound > GetGameTime() || this.IsDecapitated())
 			return;
 		
 		EmitSoundToAll(g_HurtSounds[GetRandomInt(0, sizeof(g_HurtSounds) - 1)], this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
@@ -123,6 +164,9 @@ methodmap Clot < CClotBody
 	}
 	
 	public void PlayDeathSound() {
+		if (this.IsDecapitated())
+			return;
+	
 		EmitSoundToAll(g_DeathSounds[GetRandomInt(0, sizeof(g_DeathSounds) - 1)], this.index, SNDCHAN_STATIC, 150, _, 1.0, GetRandomInt(95, 105));
 		
 		#if defined DEBUG_SOUND
@@ -146,27 +190,17 @@ methodmap Clot < CClotBody
 		#endif
 	}
 	
-	public bool IsAlert() {
-		return this.m_iState == 1;
-	}
-
-	public float GetRunSpeed() {
-		return this.IsAlert() ? 300.0 : 110.0; 
-	}
+	public bool IsAlert() { return this.m_iState == 1; }
 	
-	public float GetMaxJumpHeight() {
-		return 100.0;
-	}
-	
-	public float GetLeadRadius() {
-		return 500.0;
-	}
+	public float GetRunSpeed()      { return this.IsAlert() && !this.IsDecapitated() ? 300.0 : 110.0; }
+	public float GetMaxJumpHeight() { return 100.0; }
+	public float GetLeadRadius()    { return 500.0; }
 	
 	public Clot(int client, float vecPos[3], float vecAng[3], const char[] model, int team)
 	{
 		Clot npc = view_as<Clot>(CBaseActor(vecPos, vecAng, model, "1.0", "125"));
 		
-		int iActivity = npc.LookupActivity("ACT_MP_STAND_MELEE");
+		int iActivity = npc.LookupActivity("taunt03");
 		if(iActivity > 0) npc.StartActivity(iActivity);
 		
 		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 300.0, 0.25, 1.5);
@@ -178,6 +212,7 @@ methodmap Clot < CClotBody
 		
 		//IDLE
 		npc.m_iState = 0;
+		npc.m_bStunned = false;
 		
 		return npc;
 	}
@@ -222,13 +257,65 @@ public void ClotThink(int iNPC)
 {
 	Clot npc = view_as<Clot>(iNPC);
 	
+	//Don't let clients decide the bodygroups :angry:
+	SetEntProp(npc.index, Prop_Send, "m_nBody", GetEntProp(npc.index, Prop_Send, "m_nBody"));
+	
 	//Think throttling
-	if(npc.m_flNextThinkTime > GetGameTime())
+	if(npc.m_flNextThinkTime > GetGameTime()) {
 		return;
+	}
 	
 	npc.m_flNextThinkTime = GetGameTime() + 0.02;
 	
+	if(npc.IsDecapitated() && npc.m_flNextBloodSpray < GetGameTime())
+	{
+		npc.DispatchParticleEffect(npc.index, "blood_bread_biting2", NULL_VECTOR, NULL_VECTOR, NULL_VECTOR, npc.FindAttachment("gore_headfrontright"), PATTACH_POINT_FOLLOW, true);
+		npc.m_flNextBloodSpray = GetGameTime() + 5.0;
+	}
+	
 	npc.Update();
+	
+	if(npc.m_bStunned)
+	{
+		//Begin stun
+		if(npc.m_iStunState == -1) 
+		{
+			int iActivity = npc.LookupActivity("ACT_MP_STUN_BEGIN");
+			
+			PF_StopPathing(npc.index);
+			
+			npc.StartActivity(iActivity);
+			npc.m_iStunState = 1;
+		}
+		
+		//Stun loop
+		if(npc.IsSequenceFinished() && npc.m_iStunState == 1)
+		{
+			int iActivity = npc.LookupActivity("ACT_MP_STUN_MIDDLE");
+		
+			npc.StartActivity(iActivity);
+			npc.m_iStunState = 2;
+		}
+		
+		//Stun end
+		if(npc.m_flStunEndTime - GetGameTime() <= 0.0 && npc.m_iStunState == 2)
+		{
+			int iActivity = npc.LookupActivity("ACT_MP_STUN_END");
+		
+			npc.StartActivity(iActivity);
+			npc.m_iStunState = 3;
+		}
+		
+		//Stun exit
+		//Wait for stun anim to end and start pathing again.
+		if(npc.IsSequenceFinished() && npc.m_iStunState == 3)
+		{
+			npc.m_bStunned = false;
+			npc.m_iStunState = -1;
+		}
+		
+		return;
+	}
 	
 	CKnownEntity PrimaryThreat = npc.GetVisionInterface().GetPrimaryKnownThreat();
 
@@ -291,11 +378,11 @@ public void ClotThink(int iNPC)
 						TR_GetEndPosition(vecHit, swingTrace);
 						
 						if(target > 0) 
-						{					
+						{
 							SDKHooks_TakeDamage(target, npc.index, npc.index, 25.0, DMG_SLASH|DMG_CLUB);
 							
 							// Hit particle
-							npc.DispatchParticleEffect(npc.index, "blood_impact_backscatter", vecHit, NULL_VECTOR);
+							npc.DispatchParticleEffect(npc.index, "blood_impact_backscatter", vecHit, NULL_VECTOR, NULL_VECTOR);
 							
 							// Hit sound
 							npc.PlayMeleeHitSound();
@@ -312,7 +399,7 @@ public void ClotThink(int iNPC)
 							
 							// Hit particle if we hit something.
 							if(target >= 0) {
-								npc.DispatchParticleEffect(npc.index, "impact_dirt", vecHit, NULL_VECTOR);
+								npc.DispatchParticleEffect(npc.index, "impact_dirt", vecHit, NULL_VECTOR, NULL_VECTOR);
 							}
 						}
 					}
@@ -373,7 +460,7 @@ public void ClotThink(int iNPC)
 	if(!npc.m_bJumping)
 	{
 		if(npc.m_bPathing) {
-			if(npc.IsAlert()) {
+			if(npc.IsAlert() && !npc.IsDecapitated()) {
 				idealActivity = npc.LookupActivity("ACT_MP_RUN_MELEE");
 			} else {
 				idealActivity = npc.LookupActivity("ACT_MP_CROUCHWALK_MELEE");
@@ -582,6 +669,38 @@ enum //hitgroup_t
 	NUM_HITGROUPS
 };
 
+/*
+char g_ScanMeDaddy[][] = {
+	"gore_abdomen",
+	"gore_forearmleft",
+	"gore_handright",
+	"gore_forearmright",
+	"gore_head",
+	"gore_headleft",
+	"gore_headright",
+	"gore_uparmleft",
+	"gore_uparmright",
+	"gore_handleft"
+};
+
+	for (int i = 0; i < sizeof(g_ScanMeDaddy); i++)
+	{
+		int group = npc.FindBodygroupByName(g_ScanMeDaddy[i]);
+		if(group <= 0)
+		{
+			PrintToServer("FindBodygroupByName FAILED for %s", g_ScanMeDaddy[i]);
+			continue;
+		}
+		
+		npc.SetBodygroup(group, true);
+	
+		PrintToServer("group %s = %i", g_ScanMeDaddy[i], GetEntProp(npc.index, Prop_Send, "m_nBody"));
+		
+		//RESET
+		SetEntProp(npc.index, Prop_Send, "m_nBody", 0);
+	}
+*/
+
 public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& damage, int& damagetype, int& ammotype, int hitbox, int hitgroup)
 {
 	//Friendly fire
@@ -596,18 +715,46 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	
 	Clot npc = view_as<Clot>(victim);
 	
-	if(GetEntProp(victim, Prop_Data, "m_iHealth") <= damage)
+	float flDamagePercentage = (damage / GetEntProp(npc.index, Prop_Data, "m_iMaxHealth") * 100);
+	
+	//I got hit with over 50% of my max health damage
+	//Stun chance = percentage of damage vs max health
+	if(flDamagePercentage > 50 && !npc.m_bStunned && GetRandomFloat(0.0, 100.0) < flDamagePercentage)
 	{
-		npc.PlayDeathSound();
-		
-		damage = 0.0;
-		AcceptEntityInput(victim, "BecomeRagdoll");
-		
-		SDKUnhook(victim, SDKHook_Think, ClotThink);
-		
-		return Plugin_Changed;
+		//Off, ouch, owie
+		npc.m_bStunned = true;
+		npc.m_flStunEndTime = GetGameTime() + GetRandomFloat(5.0, 6.0);
 	}
 	
+	//PrintToServer("flDamagePercentage %f", flDamagePercentage);
+	
+	int nBody = GetEntProp(npc.index, Prop_Send, "m_nBody");
+	
+	//Randomized brain damage
+	switch(GetRandomInt(1, 3))
+	{
+		case 1:
+		{
+			if ((nBody & GORE_HEADRIGHT)     != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
+			else if ((nBody & GORE_HEADLEFT) != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
+			else if ((nBody & GORE_HEAD)     != GORE_HEAD)      nBody |= GORE_HEAD;
+		}
+		case 2:
+		{
+			if ((nBody & GORE_HEADLEFT)       != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
+			else if ((nBody & GORE_HEADRIGHT) != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
+			else if ((nBody & GORE_HEAD)      != GORE_HEAD)      nBody |= GORE_HEAD;
+		}
+		case 3: 
+		{
+			if ((nBody & GORE_HEAD)           != GORE_HEAD)      nBody |= GORE_HEAD;
+			else if ((nBody & GORE_HEADLEFT)  != GORE_HEADLEFT)  nBody |= GORE_HEADLEFT;
+			else if ((nBody & GORE_HEADRIGHT) != GORE_HEADRIGHT) nBody |= GORE_HEADRIGHT;
+		}
+	}
+	
+	SetEntProp(npc.index, Prop_Send, "m_nBody", nBody);
+
 	bool bIsKnownAttacker = (npc.GetVisionInterface().GetKnown(attacker).Address != Address_Null);
 	
 	if(!bIsKnownAttacker)
@@ -632,12 +779,12 @@ public void OnPluginStart()
 
 public void OnMapStart()
 {
-	for (int i = 0; i < (sizeof(g_DeathSounds)); i++)       { PrecacheSound(g_DeathSounds[i]);       }
-	for (int i = 0; i < (sizeof(g_HurtSounds)); i++)        { PrecacheSound(g_HurtSounds[i]);        }
-	for (int i = 0; i < (sizeof(g_IdleSounds)); i++)        { PrecacheSound(g_IdleSounds[i]);        }
+	for (int i = 0; i < (sizeof(g_DeathSounds));       i++) { PrecacheSound(g_DeathSounds[i]);       }
+	for (int i = 0; i < (sizeof(g_HurtSounds));        i++) { PrecacheSound(g_HurtSounds[i]);        }
+	for (int i = 0; i < (sizeof(g_IdleSounds));        i++) { PrecacheSound(g_IdleSounds[i]);        }
 	for (int i = 0; i < (sizeof(g_IdleAlertedSounds)); i++) { PrecacheSound(g_IdleAlertedSounds[i]); }
-	for (int i = 0; i < (sizeof(g_MeleeHitSounds)); i++)    { PrecacheSound(g_MeleeHitSounds[i]);    }
-	for (int i = 0; i < (sizeof(g_MeleeMissSounds)); i++)   { PrecacheSound(g_MeleeMissSounds[i]);   }
+	for (int i = 0; i < (sizeof(g_MeleeHitSounds));    i++) { PrecacheSound(g_MeleeHitSounds[i]);    }
+	for (int i = 0; i < (sizeof(g_MeleeMissSounds));   i++) { PrecacheSound(g_MeleeMissSounds[i]);   }
 
 	InitNavGamedata();
 }
