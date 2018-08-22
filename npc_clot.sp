@@ -1,4 +1,5 @@
 #include <sdkhooks>
+#include <tf2_stocks>
 #include <PathFollower>
 #include <PathFollower_Nav>
 #include <customkeyvalues>
@@ -72,6 +73,25 @@ public Plugin myinfo =
 	version = "1.0", 
 	url = ""
 };
+
+public void OnPluginStart()
+{
+	RegAdminCmd("sm_clot", Command_PetMenu, ADMFLAG_ROOT);
+	
+	InitGamedata();
+}
+
+public void OnMapStart()
+{
+	for (int i = 0; i < (sizeof(g_DeathSounds));       i++) { PrecacheSound(g_DeathSounds[i]);       }
+	for (int i = 0; i < (sizeof(g_HurtSounds));        i++) { PrecacheSound(g_HurtSounds[i]);        }
+	for (int i = 0; i < (sizeof(g_IdleSounds));        i++) { PrecacheSound(g_IdleSounds[i]);        }
+	for (int i = 0; i < (sizeof(g_IdleAlertedSounds)); i++) { PrecacheSound(g_IdleAlertedSounds[i]); }
+	for (int i = 0; i < (sizeof(g_MeleeHitSounds));    i++) { PrecacheSound(g_MeleeHitSounds[i]);    }
+	for (int i = 0; i < (sizeof(g_MeleeMissSounds));   i++) { PrecacheSound(g_MeleeMissSounds[i]);   }
+
+	InitNavGamedata();
+}
 
 methodmap Clot < CClotBody
 {
@@ -160,7 +180,6 @@ methodmap Clot < CClotBody
 		#if defined DEBUG_SOUND
 		PrintToServer("CClot::PlayHurtSound()");
 		#endif
-		
 	}
 	
 	public void PlayDeathSound() {
@@ -196,11 +215,11 @@ methodmap Clot < CClotBody
 	public float GetMaxJumpHeight() { return 100.0; }
 	public float GetLeadRadius()    { return 500.0; }
 	
-	public Clot(int client, float vecPos[3], float vecAng[3], const char[] model, int team)
+	public Clot(int client, float vecPos[3], float vecAng[3], const char[] model)
 	{
 		Clot npc = view_as<Clot>(CBaseActor(vecPos, vecAng, model, "1.0", "125"));
 		
-		int iActivity = npc.LookupActivity("taunt03");
+		int iActivity = npc.LookupActivity("ACT_MP_STAND_MELEE");
 		if(iActivity > 0) npc.StartActivity(iActivity);
 		
 		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 300.0, 0.25, 1.5);
@@ -220,8 +239,8 @@ methodmap Clot < CClotBody
 	public bool DoSwingTrace(Handle &trace)
 	{
 		// Setup a volume for the melee weapon to be swung - approx size, so all melee behave the same.
-		static float vecSwingMins[3]; vecSwingMins = view_as<float>({-18, -18, -18});
-		static float vecSwingMaxs[3]; vecSwingMaxs = view_as<float>({18, 18, 18});
+		static float vecSwingMins[3]; vecSwingMins = view_as<float>({-48, -48, -48});
+		static float vecSwingMaxs[3]; vecSwingMaxs = view_as<float>({48, 48, 48});
 	
 		// Setup the swing range.
 		float vecForward[3], vecRight[3], vecUp[3];
@@ -252,7 +271,7 @@ methodmap Clot < CClotBody
 }
 
 //TODO 
-//Rewrite & Cleanup
+//Rewrite
 public void ClotThink(int iNPC)
 {
 	if(GetEntProp(iNPC, Prop_Data, "m_lifeState") == 1)
@@ -294,6 +313,9 @@ public void ClotThink(int iNPC)
 			
 			npc.StartActivity(iActivity);
 			npc.m_iStunState = 1;
+			
+			//Stunned effect
+			npc.DispatchParticleEffect(npc.index, "conc_stars", NULL_VECTOR, NULL_VECTOR, NULL_VECTOR, npc.FindAttachment("gore_headfrontright"), PATTACH_POINT_FOLLOW, false);
 		}
 		
 		//Stun loop
@@ -312,6 +334,9 @@ public void ClotThink(int iNPC)
 		
 			npc.StartActivity(iActivity);
 			npc.m_iStunState = 3;
+			
+			//Clear stunned effect
+			npc.DispatchParticleEffect(npc.index, "killstreak_t1_lvl1", NULL_VECTOR, NULL_VECTOR, NULL_VECTOR, npc.FindAttachment("gore_headfrontright"), PATTACH_POINT_FOLLOW, true);
 		}
 		
 		//Stun exit
@@ -388,6 +413,11 @@ public void ClotThink(int iNPC)
 						if(target > 0) 
 						{
 							SDKHooks_TakeDamage(target, npc.index, npc.index, 25.0, DMG_SLASH|DMG_CLUB);
+							
+							//Snare players
+							if(target <= MaxClients) {
+								TF2_StunPlayer(target, 1.0, 0.25, 1);
+							}
 							
 							// Hit particle
 							npc.DispatchParticleEffect(npc.index, "blood_impact_backscatter", vecHit, NULL_VECTOR, NULL_VECTOR);
@@ -757,9 +787,13 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	//Percentage of damage taken vs our health
 	float flDamagePercentage = (damage / GetEntProp(npc.index, Prop_Data, "m_iMaxHealth") * 100);
 	
+	//Critical hits increase the stun chance 2x
+	if (damagetype & DMG_CRIT)
+		flDamagePercentage *= 2.0;
+	
 	//I got hit with over 50% of my max health damage
 	//Stun chance = percentage of damage vs max health
-	if(flDamagePercentage > 50 && !npc.m_bStunned && GetRandomFloat(0.0, 100.0) < flDamagePercentage)
+	if(!npc.m_bStunned && GetRandomFloat(0.0, 100.0) < flDamagePercentage)
 	{
 		//Off, ouch, owie
 		npc.m_bStunned = true;
@@ -776,26 +810,6 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	return result;
 }
 
-public void OnPluginStart()
-{
-	RegAdminCmd("sm_clot", Command_PetMenu, ADMFLAG_ROOT);
-	
-	InitGamedata();
-}
-
-public void OnMapStart()
-{
-	for (int i = 0; i < (sizeof(g_DeathSounds));       i++) { PrecacheSound(g_DeathSounds[i]);       }
-	for (int i = 0; i < (sizeof(g_HurtSounds));        i++) { PrecacheSound(g_HurtSounds[i]);        }
-	for (int i = 0; i < (sizeof(g_IdleSounds));        i++) { PrecacheSound(g_IdleSounds[i]);        }
-	for (int i = 0; i < (sizeof(g_IdleAlertedSounds)); i++) { PrecacheSound(g_IdleAlertedSounds[i]); }
-	for (int i = 0; i < (sizeof(g_MeleeHitSounds));    i++) { PrecacheSound(g_MeleeHitSounds[i]);    }
-	for (int i = 0; i < (sizeof(g_MeleeMissSounds));   i++) { PrecacheSound(g_MeleeMissSounds[i]);   }
-
-	InitNavGamedata();
-}
-
-
 public Action Command_PetMenu(int client, int argc)
 {
 	//What are you.
@@ -806,10 +820,7 @@ public Action Command_PetMenu(int client, int argc)
 	GetClientAbsOrigin(client, flPos);
 	GetClientAbsAngles(client, flAng);
 	
-	char arg1[16];
-	GetCmdArg(1, arg1, sizeof(arg1));
-	
-	Clot(client, flPos, flAng, "models/vince_sf_proxy/zed_clot/zed_clot_01.mdl", StringToInt(arg1));
+	Clot(client, flPos, flAng, "models/vince_sf_proxy/zed_clot/zed_clot_01.mdl");
 	
 	return Plugin_Handled;
 }
@@ -945,14 +956,4 @@ stock float[] PredictSubjectPosition(Clot npc, int subject)
 	}
 	
 	return pathTarget;
-}
-
-public bool FilterBaseActorsAndData(int entity, int contentsMask, any data)
-{
-	char class[64];
-	GetEntityClassname(entity, class, sizeof(class));
-	
-	if(StrEqual(class, "base_boss")) return false;
-	
-	return !(entity == data);
 }

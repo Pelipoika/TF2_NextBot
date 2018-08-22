@@ -95,7 +95,6 @@ Handle g_hGetStandHullHeight;
 Address TheNavAreas;
 Address navarea_count;
 
-
 methodmap CKnownEntity
 {
 	// convert to address
@@ -196,12 +195,15 @@ methodmap CBaseActor < CVision
 		//Don't bleed.
 		//SetEntProp(npc, Prop_Data, "m_bloodColor", -1); 
 		
+		static float m_vecMaxs[3]; m_vecMaxs = view_as<float>( { 24.0, 24.0, 82.0 } );
+		static float m_vecMins[3]; m_vecMins = view_as<float>( { -24.0, -24.0, 0.0 } );
+
 		//Fix collisions
-		SetEntPropVector(npc, Prop_Send, "m_vecMaxs", view_as<float>( { 13.0, 13.0, 82.0 } ));
-		SetEntPropVector(npc, Prop_Data, "m_vecMaxs", view_as<float>( { 13.0, 13.0, 82.0 } ));
+		SetEntPropVector(npc, Prop_Send, "m_vecMaxs", m_vecMaxs);
+		SetEntPropVector(npc, Prop_Data, "m_vecMaxs", m_vecMaxs);
 		
-		SetEntPropVector(npc, Prop_Send, "m_vecMins", view_as<float>( { -13.0, -13.0, 0.0 } ));
-		SetEntPropVector(npc, Prop_Data, "m_vecMins", view_as<float>( { -13.0, -13.0, 0.0 } ));
+		SetEntPropVector(npc, Prop_Send, "m_vecMins", m_vecMins);
+		SetEntPropVector(npc, Prop_Data, "m_vecMins", m_vecMins);
 		
 		return view_as<CBaseActor>(npc);
 	}
@@ -1015,7 +1017,8 @@ public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, H
 //public MRESReturn CTFBaseBoss_GetCurrencyValue(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturn(hReturn, 0);       return MRES_Supercede; }
 public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 1000.0);  return MRES_Supercede; }
 
-public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, 26.0); return MRES_Supercede; }
+//2 * m_vecMaxs[0]
+public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, 48.0); return MRES_Supercede; }
 public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 82.0); return MRES_Supercede; }
 public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 82.0); return MRES_Supercede; }
 
@@ -1060,4 +1063,14 @@ stock NavArea PickRandomArea()
 	
 	//Pick a random goal area
 	return view_as<NavArea>(LoadFromAddress(TheNavAreas + view_as<Address>(4 * GetRandomInt(0, iAreaCount - 1)), NumberType_Int32));
+}
+
+public bool FilterBaseActorsAndData(int entity, int contentsMask, any data)
+{
+	char class[64];
+	GetEntityClassname(entity, class, sizeof(class));
+	
+	if(StrEqual(class, "base_boss")) return false;
+	
+	return !(entity == data);
 }

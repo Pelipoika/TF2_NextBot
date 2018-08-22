@@ -1,4 +1,5 @@
 #include <sdkhooks>
+#include <tf2_stocks>
 #include <PathFollower>
 #include <PathFollower_Nav>
 #include <customkeyvalues>
@@ -96,19 +97,16 @@ methodmap Clot < CClotBody
 		public get()              { return this.ExtractStringValueAsInt("m_iState"); }
 		public set(int iActivity) { char buff[8]; IntToString(iActivity, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_iState", buff, true); }
 	}
-
 	property float m_flNextTargetTime
 	{
 		public get()                 { return this.ExtractStringValueAsFloat("m_flNextTargetTime"); }
 		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextTargetTime", buff, true); }
 	}
-	
 	property float m_flNextIdleSound
 	{
 		public get()                 { return this.ExtractStringValueAsFloat("m_flNextIdleSound"); }
 		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "m_flNextIdleSound", buff, true); }
-	}
-	
+	}	
 	property float m_flNextHurtSound
 	{
 		public get()                 { return this.ExtractStringValueAsFloat("m_flNextHurtSound"); }
@@ -146,7 +144,7 @@ methodmap Clot < CClotBody
 	}
 	
 	public void PlayIdleSound() {
-		if(this.m_flNextIdleSound > GetGameTime())
+		if(this.m_flNextIdleSound > GetGameTime() || this.IsDecapitated())
 			return;
 		
 		EmitSoundToAll(g_IdleSounds[GetRandomInt(0, sizeof(g_IdleSounds) - 1)], this.index, SNDCHAN_STATIC, 100, _, 1.0, GetRandomInt(95, 105));
@@ -208,9 +206,7 @@ methodmap Clot < CClotBody
 		#endif
 	}
 	
-	public bool IsAlert() {
-		return this.m_iState == 1;
-	}
+	public bool IsAlert() { return this.m_iState == 1; }
 
 	public float GetRunSpeed()      { return this.IsAlert() && !this.IsDecapitated() ? 300.0 : 110.0; }
 	public float GetMaxJumpHeight() { return 100.0; }
@@ -240,8 +236,8 @@ methodmap Clot < CClotBody
 	public bool DoSwingTrace(Handle &trace)
 	{
 		// Setup a volume for the melee weapon to be swung - approx size, so all melee behave the same.
-		static float vecSwingMins[3]; vecSwingMins = view_as<float>({-18, -18, -18});
-		static float vecSwingMaxs[3]; vecSwingMaxs = view_as<float>({18, 18, 18});
+		static float vecSwingMins[3]; vecSwingMins = view_as<float>({-48, -48, -48});
+		static float vecSwingMaxs[3]; vecSwingMaxs = view_as<float>({48, 48, 48});
 	
 		// Setup the swing range.
 		float vecForward[3], vecRight[3], vecUp[3];
@@ -285,6 +281,9 @@ public void ClotThink(int iNPC)
 
 	Clot npc = view_as<Clot>(iNPC);
 	
+	//Don't let clients decide the bodygroups :angry:		
+	SetEntProp(npc.index, Prop_Send, "m_nBody", GetEntProp(npc.index, Prop_Send, "m_nBody"));
+	
 	//Think throttling
 	if(npc.m_flNextThinkTime > GetGameTime()) {
 		return;
@@ -311,6 +310,9 @@ public void ClotThink(int iNPC)
 			
 			npc.StartActivity(iActivity);
 			npc.m_iStunState = 1;
+			
+			//Stunned effect
+			npc.DispatchParticleEffect(npc.index, "conc_stars", NULL_VECTOR, NULL_VECTOR, NULL_VECTOR, npc.FindAttachment("gore_headfrontright"), PATTACH_POINT_FOLLOW, false);
 		}
 		
 		//Stun loop
@@ -329,6 +331,9 @@ public void ClotThink(int iNPC)
 		
 			npc.StartActivity(iActivity);
 			npc.m_iStunState = 3;
+			
+			//Clear stunned effect
+			npc.DispatchParticleEffect(npc.index, "killstreak_t1_lvl1", NULL_VECTOR, NULL_VECTOR, NULL_VECTOR, npc.FindAttachment("gore_headfrontright"), PATTACH_POINT_FOLLOW, true);
 		}
 		
 		//Stun exit
@@ -357,8 +362,6 @@ public void ClotThink(int iNPC)
 		}
 		else
 		{
-			PF_SetGoalEntity(npc.index, PrimaryThreatIndex);
-		
 			float vecTarget[3]; vecTarget = WorldSpaceCenter(PrimaryThreatIndex);
 			
 			float flDistanceToTarget = GetVectorDistance(vecTarget, WorldSpaceCenter(npc.index));
@@ -408,6 +411,11 @@ public void ClotThink(int iNPC)
 						{
 							SDKHooks_TakeDamage(target, npc.index, npc.index, 50.0, DMG_SLASH|DMG_ALWAYSGIB|DMG_BLAST|DMG_CLUB);
 							
+							//Snare players
+							if(target <= MaxClients) {
+								TF2_StunPlayer(target, 1.0, 0.75, 1);
+							}
+							
 							// Hit particle
 							npc.DispatchParticleEffect(npc.index, "halloween_boss_axe_hit_sparks", vecHit, NULL_VECTOR, NULL_VECTOR);
 							
@@ -430,6 +438,8 @@ public void ClotThink(int iNPC)
 							}
 						}
 					}
+					
+					delete swingTrace;
 					
 					npc.m_flNextMeleeAttack = GetGameTime() + 1.25;
 				}
@@ -834,12 +844,16 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	
 	SetEntProp(npc.index, Prop_Send, "m_nBody", nBody);
 	
-	//Percentage of damage taken vs our health
+	//Percentage of damage taken vs our max health
 	float flDamagePercentage = (damage / GetEntProp(npc.index, Prop_Data, "m_iMaxHealth") * 100);
+	
+	//Critical hits increase the stun chance 2x
+	if (damagetype & DMG_CRIT)
+		flDamagePercentage *= 2.0;
 	
 	//I got hit with over 50% of my max health damage
 	//Stun chance = percentage of damage vs max health
-	if(flDamagePercentage > 50 && !npc.m_bStunned && GetRandomFloat(0.0, 100.0) < flDamagePercentage)
+	if(!npc.m_bStunned && GetRandomFloat(0.0, 100.0) < flDamagePercentage)
 	{
 		//Off, ouch, owie
 		npc.m_bStunned = true;
@@ -939,17 +953,4 @@ stock float[] PredictSubjectPosition(Clot npc, int subject)
 	}
 	
 	return pathTarget;
-}
-
-public bool FilterBaseActorsAndData(int entity, int contentsMask, any data)
-{
-	char class[64];
-	GetEntityClassname(entity, class, sizeof(class));
-	
-	if(StrEqual(class, "base_boss"))
-	{
-		return false;
-	}
-	
-	return !(entity == data);
 }
