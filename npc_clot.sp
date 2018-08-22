@@ -222,7 +222,7 @@ methodmap Clot < CClotBody
 		int iActivity = npc.LookupActivity("ACT_MP_STAND_MELEE");
 		if(iActivity > 0) npc.StartActivity(iActivity);
 		
-		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 0.0, 0.25, 2.0);
+		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 48.0, 0.25, 2.0);
 		npc.m_flNextTargetTime  = GetGameTime() + GetRandomFloat(1.0, 4.0);
 		npc.m_flNextMeleeAttack = npc.m_flNextTargetTime;
 		
@@ -246,12 +246,13 @@ methodmap Clot < CClotBody
 		float vecForward[3], vecRight[3], vecUp[3];
 		this.GetVectors(vecForward, vecRight, vecUp);
 		
-		float vecSwingStart[3]; vecSwingStart = WorldSpaceCenter(this.index);
+		float vecSwingStart[3]; vecSwingStart = GetAbsOrigin(this.index);
+		vecSwingStart[2] += 54.0;
 		
 		float vecSwingEnd[3];
-		vecSwingEnd[0] = vecSwingStart[0] + vecForward[0] * 48;
-		vecSwingEnd[1] = vecSwingStart[1] + vecForward[1] * 48;
-		vecSwingEnd[2] = vecSwingStart[2] + vecForward[2] * 48;
+		vecSwingEnd[0] = vecSwingStart[0] + vecForward[0] * 64;
+		vecSwingEnd[1] = vecSwingStart[1] + vecForward[1] * 64;
+		vecSwingEnd[2] = vecSwingStart[2] + vecForward[2] * 64;
 		
 		// See if we hit anything.
 		trace = TR_TraceRayFilterEx( vecSwingStart, vecSwingEnd, MASK_SOLID, RayType_EndPoint, FilterBaseActorsAndData, this.index );
@@ -391,13 +392,13 @@ public void ClotThink(int iNPC)
 			}
 			
 			//Target close enough to hit
-			if(flDistanceToTarget < 60.0)
+			if(flDistanceToTarget < 80 && !npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST"))
 			{
 				//Look at target so we hit.
 				npc.FaceTowards(vecTarget);
 				
 				//Can we attack right now?
-				if(npc.m_flNextMeleeAttack < GetGameTime() && !npc.IsPlayingGesture("ACT_MP_GESTURE_FLINCH_CHEST"))
+				if(npc.m_flNextMeleeAttack < GetGameTime())
 				{
 					//Play attack anim
 					npc.AddGesture("ACT_MP_ATTACK_Stand_MELEE_var1");
@@ -412,11 +413,12 @@ public void ClotThink(int iNPC)
 						
 						if(target > 0) 
 						{
-							SDKHooks_TakeDamage(target, npc.index, npc.index, 25.0, DMG_SLASH|DMG_CLUB);
+							SDKHooks_TakeDamage(target, npc.index, npc.index, 10.0, DMG_SLASH|DMG_CLUB);
 							
 							//Snare players
-							if(target <= MaxClients) {
-								TF2_StunPlayer(target, 1.0, 0.25, 1);
+							if(target <= MaxClients) 
+							{
+								TF2_StunPlayer(target, 1.0, 0.6, 1);
 							}
 							
 							// Hit particle
@@ -427,16 +429,20 @@ public void ClotThink(int iNPC)
 							
 							//Did we kill them?
 							int iHealthPost = GetEntProp(target, Prop_Data, "m_iHealth");
-							if(iHealthPost <= 0) {
+							if(iHealthPost <= 0) 
+							{
 								//Yup, time to celebrate
 								npc.AddGesture("ACT_MP_GESTURE_VC_FISTBUMP_MELEE");
 							}
-						} else {
+						} 
+						else 
+						{
 							// Miss
 							npc.PlayMeleeMissSound();
 							
 							// Hit particle if we hit something.
-							if(target >= 0) {
+							if(target >= 0) 
+							{
 								npc.DispatchParticleEffect(npc.index, "impact_dirt", vecHit, NULL_VECTOR, NULL_VECTOR);
 							}
 						}
@@ -444,9 +450,9 @@ public void ClotThink(int iNPC)
 					
 					delete swingTrace;
 					
-					npc.m_flNextMeleeAttack = GetGameTime() + 1.25;
+					npc.m_flNextMeleeAttack = GetGameTime() + 0.5;
 				}
-				
+
 				PF_StopPathing(npc.index);
 				npc.m_bPathing = false;
 			}
