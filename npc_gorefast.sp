@@ -209,7 +209,7 @@ methodmap Clot < CClotBody
 	public bool IsAlert() { return this.m_iState == 1; }
 
 	public float GetRunSpeed()      { return this.IsAlert() && !this.IsDecapitated() ? 300.0 : 110.0; }
-	public float GetMaxJumpHeight() { return 100.0; }
+	public float GetMaxJumpHeight() { return 50.0; }
 	public float GetLeadRadius()    { return 500.0; }
 	
 	public Clot(int client, float vecPos[3], float vecAng[3], const char[] model)
@@ -219,7 +219,7 @@ methodmap Clot < CClotBody
 		int iActivity = npc.LookupActivity("ACT_MP_STAND_MELEE");
 		if(iActivity > 0) npc.StartActivity(iActivity);
 		
-		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 300.0, 0.25, 1.5);
+		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 0.0, 0.25, 2.0);
 		npc.m_flNextTargetTime  = GetGameTime() + GetRandomFloat(1.0, 4.0);
 		npc.m_flNextMeleeAttack = npc.m_flNextTargetTime;
 		
@@ -623,134 +623,6 @@ public MRESReturn IBody_StartActivity(Address pThis, Handle hReturn, Handle hPar
 	DHookSetReturn(hReturn, view_as<Clot>(SDKCall(g_hGetEntity, SDKCall(g_hGetBot, pThis))).StartActivity(iActivity, fFlags)); 
 	
 	return MRES_Supercede; 
-}
-
-public void PluginBot_Approach(int bot_entidx, const float vec[3])
-{
-	CBaseActor npc = view_as<CBaseActor>(bot_entidx);
-	npc.Approach(vec);	
-	npc.FaceTowards(vec);
-}
-
-public bool PluginBot_IsEntityTraversable(int bot_entidx, int other_entidx, TraverseWhenType when)
-{
-	if(other_entidx == 0) {
-		return false;
-	}
-	
-	if(other_entidx > 0 && other_entidx <= MaxClients) {
-		return true;
-	}
-	
-	char className[64];
-	GetEntityClassname(other_entidx, className, sizeof(className));
-	
-	//PrintToServer("IsEntityTraversable \"%s\" other %i when %i", className, other_entidx, when);
-	
-	if(StrContains(className, "prop_door") != -1 
-	|| StrContains(className, "func_door") != -1)
-	{
-		/*	enum DoorState_t
-			{
-				DOOR_STATE_CLOSED = 0,
-				DOOR_STATE_OPENING,
-				DOOR_STATE_OPEN,
-				DOOR_STATE_CLOSING,
-				DOOR_STATE_AJAR,
-			}; */
-	
-		if(HasEntProp(other_entidx, Prop_Data, "m_eDoorState") 
-		&& GetEntProp(other_entidx, Prop_Data, "m_eDoorState") == 2) {
-			return false;
-		}
-		
-		return true;
-	}
-	
-	if(StrEqual(className, "base_boss")) {
-		return true;
-	}
-	
-	if(StrEqual(className, "func_brush")) {
-		return true;
-	}
-	
-	if(when == IMMEDIATELY) {
-		return false;
-	}
-	
-	return false;
-}
-
-public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
-{
-	float dist;
-	if (length != 0.0) 
-	{
-		dist = length;
-	}
-	else 
-	{
-		float vecCenter[3], vecFromCenter[3];
-		area.GetCenter(vecCenter);
-		from_area.GetCenter(vecFromCenter);
-		
-		float vecSubtracted[3]
-		SubtractVectors(vecCenter, vecFromCenter, vecSubtracted)
-		
-		dist = GetVectorLength(vecSubtracted);
-	}
-	
-	float multiplier = 1.0;
-	
-	/* very similar to CTFBot::TransientlyConsistentRandomValue */
-	int seed = RoundToFloor(GetGameTime() * 0.1) + 1;
-	seed *= area.GetID();
-	seed *= bot_entidx;
-	
-	/* huge random cost modifier [0, 100] for non-giant bots! */
-	multiplier += (Cosine(float(seed)) + 1.0) * 50.0;
-	
-	float cost = dist * multiplier;
-	
-	return from_area.GetCostSoFar() + cost;
-}
-
-public void PluginBot_MoveToSuccess(int bot_entidx, Address path)
-{	
-	PF_StopPathing(bot_entidx);
-	view_as<Clot>(bot_entidx).m_bPathing = false;
-	view_as<Clot>(bot_entidx).m_flNextTargetTime = GetGameTime() + GetRandomFloat(1.0, 4.0);
-}
-
-public void PluginBot_MoveToFailure(int bot_entidx, Address path, MoveToFailureType type)
-{
-	PF_StopPathing(bot_entidx);
-	view_as<Clot>(bot_entidx).m_bPathing = false;
-	view_as<Clot>(bot_entidx).m_flNextTargetTime = GetGameTime() + GetRandomFloat(1.0, 4.0);
-}
-
-public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float dir[2])
-{
-	Clot npc = view_as<Clot>(bot_entidx);
-	
-	float watchForClimbRange = 75.0;
-	
-	float vecNPC[3];
-	GetEntPropVector(bot_entidx, Prop_Data, "m_vecOrigin", vecNPC);
-	
-	float flDistance = GetVectorDistance(vecNPC, vecPos);
-	if(flDistance > watchForClimbRange || npc.IsStuck() || npc.m_bJumping)
-		return;
-	
-	//I guess we failed our last jump because we're jumping again this soon, let's try just a regular jump.
-	if((GetGameTime() - npc.m_flJumpStartTime) < 0.25)
-		npc.Jump();
-	else
-		npc.JumpAcrossGap(vecPos, vecPos);
-	
-	npc.m_bJumping = true;
-	npc.m_flJumpStartTime = GetGameTime();
 }
 
 enum //hitgroup_t

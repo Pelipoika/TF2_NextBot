@@ -951,7 +951,6 @@ public void InitGamedata()
 	DHookAddParam(g_hStartActivity, HookParamType_Int);
 	DHookAddParam(g_hStartActivity, HookParamType_Int);
 
-	//g_hGetCurrencyValue = DHookCreateEx(hConf, "CTFBaseBoss::GetCurrencyValue",   HookType_Entity, ReturnType_Int,  ThisPointer_Address,     CTFBaseBoss_GetCurrencyValue);
 	g_hEvent_Killed = DHookCreateEx(hConf, "CTFBaseBoss::Event_Killed", HookType_Entity, ReturnType_Void, ThisPointer_CBaseEntity, CTFBaseBoss_Event_Killed);
 	DHookAddParam(g_hEvent_Killed, HookParamType_Int); //( const CTakeDamageInfo &info )
 
@@ -996,6 +995,7 @@ public MRESReturn ILocomotion_GetGroundNormal(Address pThis, Handle hReturn, Han
 public MRESReturn ILocomotion_GetStepHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 18.0);	return MRES_Supercede; }
 public MRESReturn ILocomotion_GetMaxAcceleration(Address pThis, Handle hReturn, Handle hParams)  { DHookSetReturn(hReturn, 1000.0); return MRES_Supercede; }
 public MRESReturn ILocomotion_GetFrictionSideways(Address pThis, Handle hReturn, Handle hParams) { DHookSetReturn(hReturn, 3.0);    return MRES_Supercede; }
+public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 1000.0); return MRES_Supercede; }
 public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, Handle hParams)   
 { 
 	int otherindex = DHookGetParam(hParams, 1);
@@ -1009,15 +1009,14 @@ public MRESReturn ILocomotion_ShouldCollideWith(Address pThis, Handle hReturn, H
 	int entindex = SDKCall(g_hGetEntity, SDKCall(g_hGetBot, pThis));
 	
 	bool bCollide = !PluginBot_IsEntityTraversable(entindex, otherindex, IMMEDIATELY);
+	
 	DHookSetReturn(hReturn, bCollide);  
 	
-	return MRES_Ignored; 
+	return MRES_Supercede;
 }
 
-//public MRESReturn CTFBaseBoss_GetCurrencyValue(Address pThis, Handle hReturn, Handle hParams)    { DHookSetReturn(hReturn, 0);       return MRES_Supercede; }
-public MRESReturn ILocomotion_GetGravity(Address pThis, Handle hReturn, Handle hParams)          { DHookSetReturn(hReturn, 1000.0);  return MRES_Supercede; }
 
-//2 * m_vecMaxs[0]
+//2 * m_vecMaxs
 public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)              { DHookSetReturn(hReturn, 48.0); return MRES_Supercede; }
 public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)             { DHookSetReturn(hReturn, 82.0); return MRES_Supercede; }
 public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 82.0); return MRES_Supercede; }
@@ -1073,4 +1072,127 @@ public bool FilterBaseActorsAndData(int entity, int contentsMask, any data)
 	if(StrEqual(class, "base_boss")) return false;
 	
 	return !(entity == data);
+}
+
+
+public bool PluginBot_IsEntityTraversable(int bot_entidx, int other_entidx, TraverseWhenType when)
+{
+	if(other_entidx == 0) {
+		return false;
+	}
+	
+	if(other_entidx > 0 && other_entidx <= MaxClients) 
+	{
+		return true;
+	}
+	
+	char className[64];
+	GetEntityClassname(other_entidx, className, sizeof(className));
+	
+	if(StrEqual(className, "base_boss")) {
+		return true;
+	}
+	
+	if(StrEqual(className, "func_brush")) {
+		return true;
+	}
+
+	//PrintToServer("IsEntityTraversable \"%s\" other %i when %i", className, other_entidx, when);
+	
+	if(StrContains(className, "prop_door") != -1  
+	|| StrContains(className, "func_door") != -1)
+	{		
+		if(HasEntProp(other_entidx, Prop_Data, "m_eDoorState") 
+		&& GetEntProp(other_entidx, Prop_Data, "m_eDoorState") == 2) //DOOR_STATE_OPEN
+		{
+			return false;
+		}
+		
+		return true;
+	}
+	
+	if(when == IMMEDIATELY) {
+		return false;
+	}
+	
+	return false;
+}
+
+public void PluginBot_Approach(int bot_entidx, const float vec[3])
+{
+	CBaseActor npc = view_as<CBaseActor>(bot_entidx);
+	npc.Approach(vec);	
+	npc.FaceTowards(vec);
+}
+
+public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area, float length)
+{
+	float dist;
+	if (length != 0.0) 
+	{
+		dist = length;
+	}
+	else 
+	{
+		float vecCenter[3], vecFromCenter[3];
+		area.GetCenter(vecCenter);
+		from_area.GetCenter(vecFromCenter);
+		
+		float vecSubtracted[3]
+		SubtractVectors(vecCenter, vecFromCenter, vecSubtracted)
+		
+		dist = GetVectorLength(vecSubtracted);
+	}
+	
+	float multiplier = 1.0;
+	
+	/* very similar to CTFBot::TransientlyConsistentRandomValue */
+	int seed = RoundToFloor(GetGameTime() * 0.1) + 1;
+	seed *= area.GetID();
+	seed *= bot_entidx;
+	
+	/* huge random cost modifier [0, 100] for non-giant bots! */
+	multiplier += (Cosine(float(seed)) + 1.0) * 50.0;
+	
+	float cost = dist * multiplier;
+	
+	return from_area.GetCostSoFar() + cost;
+}
+
+public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float dir[2])
+{
+	CBaseActor npc = view_as<CBaseActor>(bot_entidx);
+	
+	float watchForClimbRange = 75.0;
+	
+	float vecNPC[3];
+	GetEntPropVector(bot_entidx, Prop_Data, "m_vecOrigin", vecNPC);
+	
+	float flDistance = GetVectorDistance(vecNPC, vecPos);
+	if(flDistance > watchForClimbRange || npc.IsStuck() || npc.m_bJumping)
+		return;
+	
+	//I guess we failed our last jump because we're jumping again this soon, let's try just a regular jump.
+	if((GetGameTime() - npc.m_flJumpStartTime) < 0.25)
+		npc.Jump();
+	else
+		npc.JumpAcrossGap(vecPos, vecPos);
+	
+	npc.m_bJumping = true;
+	npc.m_flJumpStartTime = GetGameTime();
+}
+
+
+public void PluginBot_MoveToSuccess(int bot_entidx, Address path)
+{
+	PF_StopPathing(bot_entidx);
+	view_as<CBaseActor>(bot_entidx).m_bPathing = false;
+	//view_as<CBaseActor>(bot_entidx).m_flNextTargetTime = GetGameTime() + GetRandomFloat(1.0, 4.0);
+}
+
+public void PluginBot_MoveToFailure(int bot_entidx, Address path, MoveToFailureType type)
+{
+	PF_StopPathing(bot_entidx);
+	view_as<CBaseActor>(bot_entidx).m_bPathing = false;
+	//view_as<CBaseActor>(bot_entidx).m_flNextTargetTime = GetGameTime() + GetRandomFloat(1.0, 4.0);
 }
