@@ -8,6 +8,8 @@
 
 #define MODEL_NPC "models/bots/demo/bot_sentry_buster.mdl"
 
+ConVar g_hIgnoreOwner;
+
 Handle g_hMyNextBotPointer;
 Handle g_hGetLocomotionInterface;
 Handle g_hGetBodyInterface;
@@ -96,55 +98,111 @@ public Action test(int client, int args)
 	int iTarget = GetClientAimTarget(client, false);	
 	if(IsValidEntity(iTarget) && PF_IsEntityACombatCharacter(iTarget))
 	{
-		SpawnBuster(GetEntProp(iTarget, Prop_Send, "m_iTeamNum") == 3 ? 2 : 3, iTarget, NULL_VECTOR); 
+		SpawnBuster(client, GetEnemyTeam(client), _, iTarget, NULL_VECTOR); 
 		ReplyToCommand(client, "[SM] Spawned a Sentry Buster after whatever you aimed at");
 	}	
 	else
 	{
-		SpawnBuster(GetClientTeam(client), client, NULL_VECTOR); 
+		SpawnBuster(client, GetEnemyTeam(client), _, client, NULL_VECTOR); 
 		ReplyToCommand(client, "[SM] Spawned a Sentry Buster after YOU!");
-		
-		//Go det at aimpos.
-	//	float vPos[3];
-	//	GetAimPos(client, vPos);
-		
-	//	SpawnBuster(GetClientTeam(client) == 2 ? 3 : 2, -1, vPos); 
 	}
 	
 	return Plugin_Handled;
 }
 
-stock void SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
+//sm_buster [blue/red] [health]
+public Action test2(int client, int args)
 {
-	int spawn = -1;
-	while((spawn = FindEntityByClassname(spawn, "info_player_teamspawn")) != -1)
+	if(args < 2)
 	{
-		bool bDisabled = !!GetEntProp(spawn, Prop_Data, "m_bDisabled");
-		int iSpawnTeam = GetEntProp(spawn, Prop_Data, "m_iTeamNum");
-		
-		if(!bDisabled && iSpawnTeam == iTeam)
-			break;
+		ReplyToCommand(client, "Usage: sm_buster [blue/red] [health]");
+		return Plugin_Handled;
+	}
+
+	char sharedBuff[8];
+	GetCmdArg(1, sharedBuff, sizeof(sharedBuff));
+	
+	TFTeam busterTeam = TFTeam_Blue;
+	if(StrEqual(sharedBuff, "red", false))
+	{
+		busterTeam = TFTeam_Red;
+	}
+	else if(StrEqual(sharedBuff, "blu", false) 
+	    || StrEqual(sharedBuff, "blue", false))
+	{
+		busterTeam = TFTeam_Blue;
+	}
+	else
+	{
+		ReplyToCommand(client, "ERROR; Unknown team: \"%s\"", sharedBuff);
+		return Plugin_Handled;
 	}
 	
-	if(spawn == -1)
-		return;
+	GetCmdArg(2, sharedBuff, sizeof(sharedBuff));
 	
+	float vAimPos[3]; GetAimPos(client, vAimPos);
+	
+	//Deploy
+	int target = GetClosestBustableTarget(client, vAimPos, busterTeam);
+	
+	if(target <= 0)
+	{
+		ReplyToCommand(client, "ERROR; Cannot find any bustable target!");
+		return Plugin_Handled;
+	}
+	
+	SpawnBuster(client, busterTeam, sharedBuff, target, vAimPos);
+	
+	ReplyToCommand(client, "[SM] Spawned a Sentry Buster on \"%s\" [%i] with \"%s\" health after %d", ((busterTeam == TFTeam_Red) ? ("Red") : ("Blue")), busterTeam, sharedBuff, target);
+
+	return Plugin_Handled;
+}
+
+stock void SpawnBuster(int iOwner, TFTeam iSpawnTeam, char[] sHealth = "1000", int iTarget, float vSpawnPoint[3])
+{
 	float vSpawn[3];
-	GetEntPropVector(spawn, Prop_Data, "m_vecAbsOrigin", vSpawn);
+	
+	if(!IsNullVector(vSpawnPoint))
+	{
+		vSpawn = vSpawnPoint;
+	}
+	else if(!GetSpawnPoint(iSpawnTeam, vSpawn))
+	{
+		ReplyToCommand(iOwner, "[SM] Failed to find a spawn point for buster.");
+		return;
+	}
+	
+	PrintToServer("owner %i target %i team %i", iOwner, iTarget, iSpawnTeam);
 	
 	int npc = CreateEntityByName("base_boss");
 	DispatchKeyValueVector(npc, "origin", vSpawn);
 	DispatchKeyValue(npc, "model", MODEL_NPC);
 	DispatchKeyValue(npc, "modelscale", "1.75");
-	DispatchKeyValue(npc, "health", "1000");
+	DispatchKeyValue(npc, "health", sHealth);
 	DispatchSpawn(npc);
 	
 	//trigger_hurts hurt.
 	SetEntityFlags(npc, FL_CLIENT);
 	
+	//Yucky
 	SetEntProp(npc, Prop_Data, "m_bloodColor", -1); //Don't bleed
-	SetEntPropEnt(npc, Prop_Data, "m_hOwnerEntity", iTarget);
-	SetEntPropFloat(npc, Prop_Data, "m_speed", 500.0);
+	
+	//Skinny boye
+	SetEntProp(npc, Prop_Send, "m_nSkin", view_as<int>(iSpawnTeam) - 2);
+	
+	//Set team
+	SetEntProp(npc, Prop_Send, "m_iTeamNum", view_as<int>(iSpawnTeam));
+	
+	//Spawner
+	SetEntPropEnt(npc, Prop_Data, "m_hOwnerEntity", iOwner);
+	
+	//Target subject
+	SetEntPropEnt(npc, Prop_Data, "m_hEffectEntity", iTarget);
+	
+	//Speedy boys
+	SetEntPropFloat(npc, Prop_Data, "m_speed", 400.0);
+	
+	//No pushy
 	SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
 	
 	SDKCall(g_hResetSequence, npc, ANIM_IDLE);
@@ -163,10 +221,10 @@ stock void SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	Address pBody = GetBodyInterface(npc);
 	DHookRaw(g_hGetSolidMask,      true, pBody);
 	
-	PF_Create(npc, 18.0, 18.0, 1000.0, 0.6, MASK_PLAYERSOLID, 200.0, 1.0, 1.0, 0.3);
-	iTarget == -1 ? PF_SetGoalVector(npc, vGoal) : PF_SetGoalEntity(npc, iTarget);
+	PF_Create(npc, 18.0, 18.0, 1000.0, 0.6, MASK_PLAYERSOLID, 200.0, 0.5, 1.0, 0.3);
+	PF_SetGoalEntity(npc, iTarget);
 	PF_EnableCallback(npc, PFCB_Approach,            PluginBot_Approach);	
-	PF_EnableCallback(npc, PFCB_IsEntityTraversable, PluginBot_Traversible);
+	//PF_EnableCallback(npc, PFCB_IsEntityTraversable, PluginBot_Traversible);
 	PF_EnableCallback(npc, PFCB_GetPathCost,         PluginBot_PathCost);
 	PF_EnableCallback(npc, PFCB_PathFailed,          PluginBot_PathFailed);	
 	PF_StartPathing(npc);
@@ -177,6 +235,26 @@ stock void SpawnBuster(int iTeam, int iTarget = -1, float vGoal[3])
 	//Spawn sounds
 	EmitGameSoundToAll("MVM.SentryBusterIntro", npc);
 	EmitGameSoundToAll("MVM.SentryBusterLoop",  npc);
+}
+
+stock bool GetSpawnPoint(TFTeam iTeam, float vSpawn[3])
+{
+	int spawn = -1;
+	while((spawn = FindEntityByClassname(spawn, "info_player_teamspawn")) != -1)
+	{
+		bool bDisabled = !!GetEntProp(spawn, Prop_Data, "m_bDisabled");
+		TFTeam iSpawnTeam = view_as<TFTeam>(GetEntProp(spawn, Prop_Data, "m_iTeamNum"));
+		
+		if(!bDisabled && iSpawnTeam == iTeam)
+			break;
+	}
+	
+	if(spawn == INVALID_ENT_REFERENCE)
+		return false;
+	
+	GetEntPropVector(spawn, Prop_Data, "m_vecAbsOrigin", vSpawn);
+	
+	return true;
 }
 
 public Action OnBotDamaged(int victim, int &attacker, int &inflictor, float &damage, int &damagetype)
@@ -272,7 +350,7 @@ public void OnBotThink(int iEntity)
 	SDKCall(g_hDispatchAnimEvents, iEntity, iEntity);
 }
 
-public bool PluginBot_Traversible(int bot_entidx, int other_entidx, TraverseWhenType when) { return true; }
+//public bool PluginBot_Traversible(int bot_entidx, int other_entidx, TraverseWhenType when) { return true; }
 
 public void PluginBot_PathFailed(int bot_entidx) 
 {
@@ -330,8 +408,8 @@ public void PluginBot_Approach(int bot_entidx, const float vec[3])
 	float vOrigin[3];
 	GetEntPropVector(bot_entidx, Prop_Data, "m_vecAbsOrigin", vOrigin);
 	
-	int iGoalEntity = GetEntPropEnt(bot_entidx, Prop_Data, "m_hOwnerEntity");
-	if(iGoalEntity != -1)
+	int iGoalEntity = GetEntPropEnt(bot_entidx, Prop_Data, "m_hEffectEntity");
+	if(iGoalEntity != INVALID_ENT_REFERENCE)
 	{
 		float vTargetPos[3];
 		GetEntPropVector(iGoalEntity, Prop_Data, "m_vecAbsOrigin", vTargetPos);
@@ -466,9 +544,81 @@ public bool ExcludeFilter(int entityhit, int mask, any entity)
 	return false;
 }
 
+stock TFTeam GetEnemyTeam(int ent)
+{
+	TFTeam enemy_team = TF2_GetClientTeam(ent);
+	switch(enemy_team)
+	{
+		case TFTeam_Red:  enemy_team = TFTeam_Blue;
+		case TFTeam_Blue: enemy_team = TFTeam_Red;
+	}
+	
+	return enemy_team;
+}
+
+stock int GetClosestBustableTarget(int owner, float vSpawn[3], TFTeam iTeam)
+{
+	int ClosestEntity = 0;
+	float flClosestDistance = 99999.0;
+	
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsClientInGame(i))
+			continue;
+		
+		if (!IsPlayerAlive(i))
+			continue;
+		
+		//Ignore owner if sm_buster_ignore_owner is true
+		if(g_hIgnoreOwner.BoolValue && i == owner)
+			continue;
+		
+		if (TF2_GetClientTeam(i) == iTeam)
+			continue;
+			
+		float flDistance = GetVectorDistance(vSpawn, GetAbsOrigin(i));
+		if (flClosestDistance > flDistance)
+		{
+			flClosestDistance = flDistance;
+			ClosestEntity = i;
+		}
+	}
+
+	int index = -1;
+	while ((index = FindEntityByClassname(index, "obj_*")) != INVALID_ENT_REFERENCE)
+	{
+		if (GetEntProp(index, Prop_Send, "m_iTeamNum") == view_as<int>(iTeam))
+			continue;
+			
+		float flDistance = GetVectorDistance(vSpawn, GetAbsOrigin(index));
+		if (flClosestDistance > flDistance)
+		{
+			flClosestDistance = flDistance;
+			ClosestEntity = index;
+		}
+	}
+	
+	return ClosestEntity;
+}
+
+stock float[] GetAbsOrigin(int client)
+{
+	if(client <= 0)
+		return NULL_VECTOR;
+
+	float v[3];
+	GetEntPropVector(client, Prop_Data, "m_vecAbsOrigin", v);
+	return v;
+}
+
 public void OnPluginStart()
 {
-	RegAdminCmd("sm_bust", test, ADMFLAG_ROOT);
+	g_hIgnoreOwner = CreateConVar("sm_buster_ignore_owner", "1", "Sentry Buster will ignore owner upon spawning when choosing target", _, true, 0.0, true, 1.0);
+
+	RegAdminCmd("sm_bustthat", test, ADMFLAG_ROOT);
+	
+	RegAdminCmd("sm_bust", test2, ADMFLAG_ROOT);
+	RegAdminCmd("sm_buster", test2, ADMFLAG_ROOT);
 	
 	Handle hConf = LoadGameConfigFile("tf2.pets");
 	

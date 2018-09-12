@@ -82,6 +82,11 @@
 				"windows"	"\x55\x8B\xEC\x56\x8B\xF1\x57\x80\xBE\x41\x03\x00\x00\x00\x75\x2A\x83\xBE\x6C\x04\x00\x00\x00\x75\x2A\xE8\x2A\x2A\x2A\x2A\x85\xC0\x74\x2A\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x8B\xBE\x6C\x04\x00\x00"
 				"linux"		"@_ZN14CBaseAnimating16GetPoseParameterEi"
 			}
+			"CBaseAnimating::GetIntervalMovement" //( float flIntervalUsed, bool &bMoveSeqFinished, Vector &newPosition, QAngle &newAngles )
+			{
+				"windows"	"\x55\x8B\xEC\x83\xEC\x18\x56\x8B\xF1\x57\x80\xBE\x41\x03\x00\x00\x00"
+				"linux"		"@_ZN14CBaseAnimating19GetIntervalMovementEfRbR6VectorR6QAngle"
+			}
 			"LookupSequence" //int ( CStudioHdr *pstudiohdr, const char *label ) "spew_bars_context" NOTE: NOT CBaseAnimating::LookupSequence
 			{
 				"windows"	"\x55\x8B\xEC\x56\x8B\x75\x08\x85\xF6\x75\x2A\x33\xC0\x5E\x5D\xC3\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x53"
@@ -322,6 +327,11 @@
 				"windows"	"46"
 				"linux"		"47"
 			}
+			"ILocomotion::DriveTo"
+			{
+				"windows"	"47"
+				"linux"		"48"
+			}
 			"ILocomotion::Run"
 			{
 				"windows"	"55"
@@ -371,6 +381,11 @@
 			{
 				"windows"	"50"
 				"linux"		"51"
+			}
+			"ILocomotion::IsClimbingUpToLedge"
+			{
+				"windows"	"52"
+				"linux"		"53"
 			}
 			"ILocomotion::GetMaxYawRate"
 			{
@@ -545,6 +560,11 @@
 			{
 				"windows"	"61"
 				"linux"		"62"
+			}
+			"IBody::HasActivityType"
+			{
+				"windows"	"62"
+				"linux"		"63"
 			}
 			
 			"CBaseCombatCharacter::ShouldGib"
