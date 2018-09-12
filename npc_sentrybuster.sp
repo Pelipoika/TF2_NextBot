@@ -18,7 +18,6 @@ Handle g_hRun;
 Handle g_hApproach;
 Handle g_hFaceTowards;
 Handle g_hResetSequence;
-Handle g_hResetSequenceInfo;
 Handle g_hGetStepHeight;
 Handle g_hGetGravity;
 Handle g_hGetSolidMask;
@@ -585,8 +584,17 @@ stock int GetClosestBustableTarget(int owner, float vSpawn[3], TFTeam iTeam)
 	}
 
 	int index = -1;
-	while ((index = FindEntityByClassname(index, "obj_*")) != INVALID_ENT_REFERENCE)
+	while ((index = FindEntityByClassname(index, "*")) != INVALID_ENT_REFERENCE)
 	{
+		if(index <= MaxClients || index > 2048)
+			continue;
+	
+		if(!IsValidEntity(index))
+			continue;
+	
+		if(!PF_IsEntityACombatCharacter(index))
+			continue;
+			
 		if (GetEntProp(index, Prop_Send, "m_iTeamNum") == view_as<int>(iTeam))
 			continue;
 			
@@ -637,11 +645,6 @@ public void OnPluginStart()
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequence");
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
 	if ((g_hResetSequence = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create SDKCall for CBaseAnimating::ResetSequence signature!"); 
-
-	//ResetSequenceInfo( );
-	StartPrepSDKCall(SDKCall_Entity);
-	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CBaseAnimating::ResetSequenceInfo");
-	if((g_hResetSequenceInfo = EndPrepSDKCall()) == INVALID_HANDLE) SetFailState("Failed to create Call for CBaseAnimating::ResetSequenceInfo");
 
 	//MyNextBotPointer( );
 	StartPrepSDKCall(SDKCall_Entity);
