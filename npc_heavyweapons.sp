@@ -143,7 +143,7 @@ TODO:
 - https://github.com/sigsegv-mvm/mvm-reversed/blob/3c60e2448fa660ab513b2c455eec33f33cedeac5/server/tf/bot/behavior/squad/tf_bot_escort_squad_leader.cpp#L45
 */
 
-methodmap BaseNPC __nullable__
+methodmap BaseNPC
 {
 	public BaseNPC(float vecPos[3], float vecAng[3], const char[] model, const char[] modelscale = "1.0", const char[] health = "5000", bool bGroundNormal = true)
 	{
@@ -1540,7 +1540,6 @@ methodmap BaseNPC __nullable__
 	{
 		PF_Create(this.index, flStep, flJump, flDrop, 0.6, iSolid, flAhead, flRePath, flHull);
 		PF_EnableCallback(this.index, PFCB_Approach, PluginBot_Approach);
-		PF_EnableCallback(this.index, PFCB_ClimbUpToLedge, PluginBot_Jump);
 		PF_EnableCallback(this.index, PFCB_GetPathCost, PluginBot_PathCost);
 	}	
 	public void Approach(const float vecGoal[3])
@@ -1930,9 +1929,9 @@ methodmap CTFBotSquad < Dynamic
 
 methodmap PetHeavy < BaseNPC
 {
-	public PetHeavy(int client, float vecPos[3], float vecAng[3], const char[] model, int team)
+	public PetHeavy(int client, float vecPos[3], float vecAng[3], const char[] model, int team, const char[] health = "5000")
 	{
-		BaseNPC pet = new BaseNPC(vecPos, vecAng, model, "1.75");
+		BaseNPC pet = BaseNPC(vecPos, vecAng, model, "1.75", health);
 		
 		SetEntPropFloat(pet.index, Prop_Data, "m_speed", 230.0);
 		SetEntProp(pet.index, Prop_Send, "m_nSkin", team - 2);
@@ -2440,12 +2439,13 @@ public void OnEntityDestroyed(int entity)
 
 public float clamp(float a, float b, float c) { return (a > c ? c : (a < b ? b : a)); }
 
+//sm_heavy [blue/red] [health]
 public Action Command_PetMenu(int client, int argc)
 {
 	//What are you.
 	if(!(client > 0 && client <= MaxClients && IsClientInGame(client)))
 		return Plugin_Handled;
-	
+/*		
 	float flPos[3], flAng[3];
 	GetClientAbsOrigin(client, flPos);
 	GetClientAbsAngles(client, flAng);
@@ -2488,7 +2488,45 @@ public Action Command_PetMenu(int client, int argc)
 		int hat = npc.EquipItem("head", "models/player/items/mvm_loot/heavy/robo_ushanka.mdl", _, iTeam - 2);
 		SetVariantString("1.0");
 		AcceptEntityInput(hat, "SetModelScale");
+	}*/
+	
+	if(argc < 2)
+	{
+		ReplyToCommand(client, "Usage: sm_heavy [blue/red] [health]");
+		return Plugin_Handled;
 	}
+
+	char sharedBuff[8];
+	GetCmdArg(1, sharedBuff, sizeof(sharedBuff));
+	
+	TFTeam busterTeam = TFTeam_Blue;
+	if(StrEqual(sharedBuff, "red", false))
+	{
+		busterTeam = TFTeam_Red;
+	}
+	else if(StrEqual(sharedBuff, "blu", false) 
+	    || StrEqual(sharedBuff, "blue", false))
+	{
+		busterTeam = TFTeam_Blue;
+	}
+	else
+	{
+		ReplyToCommand(client, "ERROR; Unknown team: \"%s\"", sharedBuff);
+		return Plugin_Handled;
+	}
+	
+	//Health
+	GetCmdArg(2, sharedBuff, sizeof(sharedBuff));
+	
+	float vAimPos[3]; GetAimPos(client, vAimPos);
+	
+	PetHeavy npc = PetHeavy(client, vAimPos, NULL_VECTOR, "models/bots/heavy_boss/bot_heavy_boss.mdl", view_as<int>(busterTeam), sharedBuff);
+	npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_minigun.mdl", _, 8);
+	int hat = npc.EquipItem("head", "models/player/items/mvm_loot/heavy/robo_ushanka.mdl", _, view_as<int>(busterTeam) - 2);
+	SetVariantString("1.0");
+	AcceptEntityInput(hat, "SetModelScale");
+	
+	ReplyToCommand(client, "[SM] Spawned a \"Giant Deflector Heavy\" on \"%s\" [%i] with \"%s\" health", ((busterTeam == TFTeam_Red) ? ("Red") : ("Blue")), busterTeam, sharedBuff);
 	
 	return Plugin_Handled;
 }
@@ -2953,82 +2991,6 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	return from_area.GetCostSoFar() + cost;
 }
 
-public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float dir[2])
-{
-	bool bOnGround = (GetEntPropEnt(bot_entidx, Prop_Data, "m_hGroundEntity") != -1);
-	
-	if(bOnGround)
-	{
-		float vecNPC[3], vecJumpVel[3];
-		GetEntPropVector(bot_entidx, Prop_Data, "m_vecOrigin", vecNPC);
-		
-		float gravity = GetEntPropFloat(bot_entidx, Prop_Data, "m_flGravity");
-		if(gravity <= 0.0)
-			gravity = FindConVar("sv_gravity").FloatValue;
-		
-		// How fast does the headcrab need to travel to reach the position given gravity?
-		float flActualHeight = vecPos[2] - vecNPC[2];
-		float height = flActualHeight;
-		if ( height < 16 )
-		{
-			height = 16.0;
-		}
-
-		// overshoot the jump by an additional 8 inches
-		// NOTE: This calculation jumps at a position INSIDE the box of the enemy (player)
-		// so if you make the additional height too high, the crab can land on top of the
-		// enemy's head.  If we want to jump high, we'll need to move vecPos to the surface/outside
-		// of the enemy's box.
-	
-		float additionalHeight = 0.0;
-		if ( height < 32 )
-		{
-			additionalHeight = 8.0;
-		}
-		
-		height += additionalHeight;
-		
-		// NOTE: This equation here is from vf^2 = vi^2 + 2*a*d
-		float speed = SquareRoot( 2 * gravity * height );
-		float time = speed / gravity;
-	
-		// add in the time it takes to fall the additional height
-		// So the impact takes place on the downward slope at the original height
-		time += SquareRoot( (2 * additionalHeight) / gravity );
-		
-		// Scale the sideways velocity to get there at the right time
-		SubtractVectors( vecPos, vecNPC, vecJumpVel );
-		vecJumpVel[0] /= time;
-		vecJumpVel[1] /= time;
-		vecJumpVel[2] /= time;
-	
-		// Speed to offset gravity at the desired height.
-		vecJumpVel[2] = speed;
-		
-		// Don't jump too far/fast.
-		float flJumpSpeed = GetVectorLength(vecJumpVel);
-		float flMaxSpeed = 650.0;
-		if ( flJumpSpeed > flMaxSpeed )
-		{
-			vecJumpVel[0] *= flMaxSpeed / flJumpSpeed;
-			vecJumpVel[1] *= flMaxSpeed / flJumpSpeed;
-			vecJumpVel[2] *= flMaxSpeed / flJumpSpeed;
-		}
-		
-		BaseNPC npc = view_as<BaseNPC>(bot_entidx);
-		npc.Jump();
-		npc.SetVelocity(vecJumpVel);
-		
-		char JumpAnim[32];
-		npc.JumpAnim(JumpAnim, sizeof(JumpAnim));
-		
-		if(!StrEqual(JumpAnim, ""))
-		{
-			npc.SetAnimation(JumpAnim);
-		}
-	}
-}
-
 public Action OnBotDamaged(int victim, int &attacker, int &inflictor, float &damage, int &damagetype)
 {
 	float pos[3]; GetEntPropVector(victim, Prop_Data, "m_vecAbsOrigin", pos);
@@ -3044,58 +3006,22 @@ public Action OnBotDamaged(int victim, int &attacker, int &inflictor, float &dam
 			AddThreat(victim, inflictor);
 		
 		CreateParticle("bot_impact_heavy", pos, ang);
-	}
 	
-	if(damage >= GetEntProp(victim, Prop_Data, "m_iHealth"))
-	{
-		CreateParticle("bot_death", pos, ang);
-		EmitSoundToAll("mvm/sentrybuster/mvm_sentrybuster_explode.wav", SOUND_FROM_WORLD, SNDCHAN_STATIC, 125, _, _, _, _, pos);
-		
-		// Spawn head gib.
-		pos = WorldSpaceCenter(victim);
-		pos[2] -= 100.0;
-	
-		float vel[3];
-		vel[2] = 325.0; // Have the head shoot upwards.
-		
-		char model[PLATFORM_MAX_PATH];
-		strcopy(model, sizeof(model), gibs[0]);
-		
-		if(strlen(model) > 0)
+		if(damage >= GetEntProp(victim, Prop_Data, "m_iHealth"))
 		{
-			int gib = CreateEntityByName("prop_physics_multiplayer");
-			DispatchKeyValue(gib, "model", model);
-			DispatchKeyValue(gib, "physicsmode", "2");
-	
-			DispatchSpawn(gib);
-	
-			SetEntProp(gib, Prop_Send, "m_CollisionGroup", 1); // 24
-			SetEntProp(gib, Prop_Send, "m_usSolidFlags", 0); // 8
-			SetEntProp(gib, Prop_Send, "m_nSolidType", 2); // 6
-			SetEntProp(gib, Prop_Send, "m_nSkin", view_as<BaseNPC>(victim).GetTeam() - 2);
-	
-			int effects = 16|64;
-			SetEntProp(gib, Prop_Send, "m_fEffects", effects);
-	
-			TeleportEntity(gib, pos, ang, vel);
+			CreateParticle("bot_death", pos, ang);
+			EmitSoundToAll("mvm/sentrybuster/mvm_sentrybuster_explode.wav", SOUND_FROM_WORLD, SNDCHAN_STATIC, 125, _, _, _, _, pos);
 			
-			SetVariantString("OnUser1 !self:Kill::10.0:1");
-			AcceptEntityInput(gib, "AddOutput");
-			AcceptEntityInput(gib, "FireUser1");
-		}
+			// Spawn head gib.
+			pos = WorldSpaceCenter(victim);
+			pos[2] -= 100.0;
 		
-		// Spawn arm/leg/torso gibs.
-		for(int numGibs = 1; numGibs < sizeof(gibs) - 1; numGibs++)
-		{
-			for(int i = 0; i < 2; i++) pos[i] += GetRandomFloat(-42.0, 42.0);
-	
-			ang[1] = GetRandomFloat(-180.0, 180.0);
-	
-			for(int i = 0; i < 2; i++) vel[i] += GetRandomFloat(-100.0, 100.0);
-			vel[2] = 300.0;
+			float vel[3];
+			vel[2] = 325.0; // Have the head shoot upwards.
 			
-			strcopy(model, sizeof(model), gibs[numGibs]);
-		
+			char model[PLATFORM_MAX_PATH];
+			strcopy(model, sizeof(model), gibs[0]);
+			
 			if(strlen(model) > 0)
 			{
 				int gib = CreateEntityByName("prop_physics_multiplayer");
@@ -3117,6 +3043,42 @@ public Action OnBotDamaged(int victim, int &attacker, int &inflictor, float &dam
 				SetVariantString("OnUser1 !self:Kill::10.0:1");
 				AcceptEntityInput(gib, "AddOutput");
 				AcceptEntityInput(gib, "FireUser1");
+			}
+			
+			// Spawn arm/leg/torso gibs.
+			for(int numGibs = 1; numGibs < sizeof(gibs) - 1; numGibs++)
+			{
+				for(int i = 0; i < 2; i++) pos[i] += GetRandomFloat(-42.0, 42.0);
+		
+				ang[1] = GetRandomFloat(-180.0, 180.0);
+		
+				for(int i = 0; i < 2; i++) vel[i] += GetRandomFloat(-100.0, 100.0);
+				vel[2] = 300.0;
+				
+				strcopy(model, sizeof(model), gibs[numGibs]);
+			
+				if(strlen(model) > 0)
+				{
+					int gib = CreateEntityByName("prop_physics_multiplayer");
+					DispatchKeyValue(gib, "model", model);
+					DispatchKeyValue(gib, "physicsmode", "2");
+			
+					DispatchSpawn(gib);
+			
+					SetEntProp(gib, Prop_Send, "m_CollisionGroup", 1); // 24
+					SetEntProp(gib, Prop_Send, "m_usSolidFlags", 0); // 8
+					SetEntProp(gib, Prop_Send, "m_nSolidType", 2); // 6
+					SetEntProp(gib, Prop_Send, "m_nSkin", view_as<BaseNPC>(victim).GetTeam() - 2);
+			
+					int effects = 16|64;
+					SetEntProp(gib, Prop_Send, "m_fEffects", effects);
+			
+					TeleportEntity(gib, pos, ang, vel);
+					
+					SetVariantString("OnUser1 !self:Kill::10.0:1");
+					AcceptEntityInput(gib, "AddOutput");
+					AcceptEntityInput(gib, "FireUser1");
+				}
 			}
 		}
 	}
@@ -3422,4 +3384,31 @@ public bool WorldOnly(int entity, int contentsMask, any iExclude)
 	}
 	
 	return !(entity == iExclude);
+}
+
+
+
+stock bool GetAimPos(int client, float vecPos[3])
+{
+	float StartOrigin[3], Angles[3];
+	GetClientEyeAngles(client, Angles);
+	GetClientEyePosition(client, StartOrigin);
+
+	Handle TraceRay = TR_TraceRayFilterEx(StartOrigin, Angles, MASK_ALL, RayType_Infinite, ExcludeFilter, client);
+	if (TR_DidHit(TraceRay))
+	{
+		TR_GetEndPosition(vecPos, TraceRay);
+	}
+	
+	delete TraceRay;
+}
+
+public bool ExcludeFilter(int entityhit, int mask, any entity)
+{
+	if (entityhit > MaxClients && entityhit != entity)
+	{
+		return true;
+	}
+	
+	return false;
 }
