@@ -87,6 +87,11 @@
 				"windows"	"\x55\x8B\xEC\x83\xEC\x18\x56\x8B\xF1\x57\x80\xBE\x41\x03\x00\x00\x00"
 				"linux"		"@_ZN14CBaseAnimating19GetIntervalMovementEfRbR6VectorR6QAngle"
 			}
+			"CBaseAnimating::GetSequenceActivity"
+			{
+				"windows"	"\x55\x8B\xEC\x83\x7D\x08\xFF\x56\x8B\xF1\x74\x2A"
+				"linux"		"@_ZN14CBaseAnimating19GetSequenceActivityEi"
+			}
 			"LookupSequence" //int ( CStudioHdr *pstudiohdr, const char *label ) "spew_bars_context" NOTE: NOT CBaseAnimating::LookupSequence
 			{
 				"windows"	"\x55\x8B\xEC\x56\x8B\x75\x08\x85\xF6\x75\x2A\x33\xC0\x5E\x5D\xC3\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x53"
@@ -336,6 +341,16 @@
 			{
 				"windows"	"55"
 				"linux"		"56"
+			}
+			"ILocomotion::IsRunning"
+			{
+				"windows"	"58"
+				"linux"		"59"
+			}
+			"ILocomotion::GetDesiredSpeed"
+			{
+				"windows"	"60"
+				"linux"		"61"
 			}
 			"ILocomotion::FaceTowards"
 			{

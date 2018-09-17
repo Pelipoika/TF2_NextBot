@@ -4,7 +4,7 @@
 #include <PathFollower>
 #include <PathFollower_Nav>
 #include <dhooks>
-#include <dynamic>
+#include <customkeyvalues>
 #include <CBaseAnimatingOverlay>
 
 #pragma newdecls required;
@@ -112,15 +112,111 @@ public Plugin myinfo =
 
 methodmap BaseNPC
 {
+	property int index
+	{
+		public get() 
+		{ 
+			return view_as<int>(this); 
+		}
+	}
+	public int ExtractStringValueAsInt(const char[] key)
+	{
+		char buffer[64]; 
+		bool bExists = GetCustomKeyValue(this.index, key, buffer, sizeof(buffer)); 
+		return bExists ? StringToInt(buffer) : -1;
+	}
+	public float ExtractStringValueAsFloat(const char[] key)
+	{
+		char buffer[64]; 
+		bool bExists = GetCustomKeyValue(this.index, key, buffer, sizeof(buffer)); 
+		return bExists ? StringToFloat(buffer) : -1.0;
+	}
+	property bool Pathing
+	{
+		public get()            { return !!this.ExtractStringValueAsInt("Pathing"); }
+		public set(bool bOnOff) 
+		{
+			if (PF_Exists(this.index))
+			{
+				bOnOff ? PF_StartPathing(this.index) : PF_StopPathing(this.index);
+			}
+			
+			char buff[8]; 
+			IntToString(bOnOff, buff, sizeof(buff)); 
+			SetCustomKeyValue(this.index, "Pathing", buff, true); 
+		}
+	}
+	property int Weapon
+	{
+		public get()         
+		{ 
+			return EntRefToEntIndex(this.ExtractStringValueAsInt("Weapon")); 
+		}
+		public set(int iInt) 
+		{
+			char buff[32]; 
+			IntToString(iInt == INVALID_ENT_REFERENCE ? -1 : EntIndexToEntRef(iInt), buff, sizeof(buff)); 
+			SetCustomKeyValue(this.index, "Weapon", buff, true); 
+		}
+	}
+	property bool DoingSpecial
+	{
+		public get()            { return !!this.ExtractStringValueAsInt("DoingSpecial"); }
+		public set(bool bOnOff) { char buff[8]; IntToString(bOnOff, buff, sizeof(buff)); SetCustomKeyValue(this.index, "DoingSpecial", buff, true); }
+	}
+	property float MoveSpeed
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("MoveSpeed"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "MoveSpeed", buff, true); }
+	}
+	property float OutOfRange
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("OutOfRange"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "OutOfRange", buff, true); }
+	}
+	property float SpecialTime
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("SpecialTime"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "SpecialTime", buff, true); }
+	}
+	
+	public void GetSpecialPos(float pos[3])
+	{
+		char sVal[8];
+		
+		GetCustomKeyValue(this.index, "special_x", sVal, sizeof(sVal));
+		pos[0] = StringToFloat(sVal);
+		
+		GetCustomKeyValue(this.index, "special_y", sVal, sizeof(sVal));
+		pos[1] = StringToFloat(sVal);
+		
+		GetCustomKeyValue(this.index, "special_z", sVal, sizeof(sVal));
+		pos[2] = StringToFloat(sVal);
+	}
+
+	public void SetSpecialPos(float pos[3])
+	{
+		char sVal[8];
+		
+		FloatToString(pos[0], sVal, sizeof(sVal));
+		SetCustomKeyValue(this.index, "special_x", sVal, true);
+		
+		FloatToString(pos[1], sVal, sizeof(sVal));
+		SetCustomKeyValue(this.index, "special_y", sVal, true);
+		
+		FloatToString(pos[2], sVal, sizeof(sVal));
+		SetCustomKeyValue(this.index, "special_z", sVal, true);
+	}
+
 	public BaseNPC(float vecPos[3], float vecAng[3], const char[] model, const char[] modelscale = "1.0", const char[] health = "100", bool bGroundNormal = true)
 	{
-		int npc = CreateEntityByName("base_boss");
-		DispatchKeyValueVector(npc, "origin",     vecPos);
-		DispatchKeyValueVector(npc, "angles",     vecAng);
-		DispatchKeyValue(npc,       "model",      model);
-		DispatchKeyValue(npc,       "modelscale", modelscale);
-		DispatchKeyValue(npc,       "health",     health);
-		DispatchSpawn(npc);
+		BaseNPC npc = view_as<BaseNPC>(CreateEntityByName("base_boss"));
+		DispatchKeyValueVector(npc.index, "origin",     vecPos);
+		DispatchKeyValueVector(npc.index, "angles",     vecAng);
+		DispatchKeyValue(npc.index,       "model",      model);
+		DispatchKeyValue(npc.index,       "modelscale", modelscale);
+		DispatchKeyValue(npc.index,       "health",     health);
+		DispatchSpawn(npc.index);
 		
 		CreateParticle("ghost_appearation", vecPos, vecAng);
 		//CreateParticle("xms_snowburst", vecPos, vecAng);
@@ -146,261 +242,39 @@ methodmap BaseNPC
 		DHookRaw(g_hGetStandHullHeight,  true, pBody);
 		DHookRaw(g_hGetCrouchHullHeight, true, pBody);
 		
-		SetEntityFlags(npc, FL_NOTARGET);
+		SetEntityFlags(npc.index, FL_NOTARGET);
 		
-		SetEntData(npc, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
-		SetEntProp(npc, Prop_Data, "m_takedamage", 0);
-		SetEntProp(npc, Prop_Data, "m_lifeState", 1); 
-		SetEntProp(npc, Prop_Data, "m_nSolidType", 0); 
+		SetEntData(npc.index, FindSendPropInfo("CTFBaseBoss", "m_lastHealthPercentage") + 28, false, 4, true);	//ResolvePlayerCollisions
+		SetEntProp(npc.index, Prop_Data, "m_takedamage", 0);
+		SetEntProp(npc.index, Prop_Data, "m_lifeState", 1); 
+		SetEntProp(npc.index, Prop_Data, "m_nSolidType", 0); 
 
-		ActivateEntity(npc);
+		ActivateEntity(npc.index);
 		
-		char strName[64];
-		Format(strName, sizeof(strName), "basenpc_%x", EntIndexToEntRef(npc));
-		
-		Dynamic brain = Dynamic();
-		brain.SetBool("Pathing", false);
-		brain.SetInt ("Weapon",  INVALID_ENT_REFERENCE);
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetFloat("OutOfRange", 300.0);
-		brain.SetBool("DoingSpecial", false);
-		brain.SetVector("SpecialPos", NULL_VECTOR);
-		brain.SetFloat("SpecialTime", 0.0);
-		brain.SetName(strName);
-		
-		SDKHook(npc, SDKHook_Think, BasicPetThink);
+		SDKHook(npc.index, SDKHook_Think, BasicPetThink);
 		
 		//Fix collisions
-		SetEntPropVector(npc, Prop_Send, "m_vecMaxs", view_as<float>( { 6.5, 6.5, 34.0 } ));
-		SetEntPropVector(npc, Prop_Data, "m_vecMaxs", view_as<float>( { 6.5, 6.5, 34.0 } ));
+		SetEntPropVector(npc.index, Prop_Send, "m_vecMaxs", view_as<float>( { 6.5, 6.5, 34.0 } ));
+		SetEntPropVector(npc.index, Prop_Data, "m_vecMaxs", view_as<float>( { 6.5, 6.5, 34.0 } ));
 		
-		SetEntPropVector(npc, Prop_Send, "m_vecMins", view_as<float>( { -6.5, -6.5, 0.0 } ));
-		SetEntPropVector(npc, Prop_Data, "m_vecMins", view_as<float>( { -6.5, -6.5, 0.0 } ));
+		SetEntPropVector(npc.index, Prop_Send, "m_vecMins", view_as<float>( { -6.5, -6.5, 0.0 } ));
+		SetEntPropVector(npc.index, Prop_Data, "m_vecMins", view_as<float>( { -6.5, -6.5, 0.0 } ));
 		
-		return view_as<BaseNPC>(npc);
+		npc.DoingSpecial = false;
+		npc.Pathing = false;
+		npc.SpecialTime = 0.0;
+		npc.Weapon = INVALID_ENT_REFERENCE;
+		
+		return npc;
 	}
 	
-	property int index
-	{
-		public get() 
-		{ 
-			return view_as<int>(this); 
-		}
-	}
-	public Dynamic GetBrainInterface()
-	{
-		char strName[64];
-		Format(strName, sizeof(strName), "basenpc_%x", EntIndexToEntRef(this.index));
-		
-		Dynamic brain = Dynamic.FindByName(strName);
-		if(!brain.IsValid)
-		{
-			AcceptEntityInput(this.index, "Kill");
-		}
-		
-		return brain;
-	}	
 	public Address GetLocomotionInterface()
 	{
-		Address pNB = SDKCall(g_hMyNextBotPointer, this.index);
-		return SDKCall(g_hGetLocomotionInterface, pNB);
+		return SDKCall(g_hGetLocomotionInterface, SDKCall(g_hMyNextBotPointer, this.index));
 	}	
 	public Address GetBodyInterface()
 	{
-		Address pNB = SDKCall(g_hMyNextBotPointer, this.index);
-		return SDKCall(g_hGetBodyInterface, pNB);
-	}
-	
-	property bool Pathing
-	{
-		public get()			
-		{
-			bool Pathing = false;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				Pathing = brain.GetBool("Pathing");
-			}
-			
-			return Pathing;
-		}
-		public set(bool path)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetBool("Pathing", path);
-				
-				path ? PF_StartPathing(this.index) : PF_StopPathing(this.index);
-			}
-		}
-	}
-	property int Weapon
-	{
-		public get()			
-		{
-			int ent = INVALID_ENT_REFERENCE;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				ent = EntRefToEntIndex(brain.GetInt("Weapon"));
-			}
-			
-			return ent;
-		}
-		public set(int weapon)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetInt("Weapon", EntIndexToEntRef(weapon));
-			}
-		}
-	}
-	property float MoveSpeed
-	{
-		public get()			
-		{
-			float speed = 0.0;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				speed = brain.GetFloat("MoveSpeed");
-			}
-			
-			return speed;
-		}
-		public set(float speed)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetFloat("MoveSpeed", speed);
-			}
-		}
-	}
-	property float OutOfRange
-	{
-		public get()			
-		{
-			float range = 0.0;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				range = brain.GetFloat("OutOfRange");
-			}
-			
-			return range;
-		}
-		public set(float range)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetFloat("OutOfRange", range);
-			}
-		}
-	}
-	property bool DoingSpecial
-	{
-		public get()			
-		{
-			bool DoingSpecial = false;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				DoingSpecial = brain.GetBool("DoingSpecial");
-			}
-			
-			return DoingSpecial;
-		}
-		public set(bool DoingSpecial)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetBool("DoingSpecial", DoingSpecial);
-			}
-		}
-	}
-	property float SpecialTime
-	{
-		public get()			
-		{
-			float SpecialTime = GetGameTime();
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				SpecialTime = brain.GetFloat("SpecialTime");
-			}
-			
-			return SpecialTime;
-		}
-		public set(float SpecialTime)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetFloat("SpecialTime", SpecialTime);
-			}
-		}
-	}
-	
-	public bool GetSpecialPos(float[3] value)
-	{
-		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
-		if (offset == INVALID_DYNAMIC_OFFSET)
-		{
-			offset = this.GetBrainInterface().GetMemberOffset("SpecialPos");
-			if (offset == INVALID_DYNAMIC_OFFSET)
-				SetFailState("A serious error occured in Dynamic!");
-		}
-		this.GetBrainInterface().GetVectorByOffset(offset, value);
-		return true;
-	}
-	public void SetSpecialPos(const float[3] value)
-	{
-		static DynamicOffset offset = INVALID_DYNAMIC_OFFSET;
-		if (offset == INVALID_DYNAMIC_OFFSET)
-		{
-			offset = this.GetBrainInterface().GetMemberOffset("SpecialPos");
-			if (offset == INVALID_DYNAMIC_OFFSET)
-			{
-				offset = this.GetBrainInterface().SetVector("SpecialPos", value);
-				return;
-			}
-		}
-		this.GetBrainInterface().SetVectorByOffset(offset, value);
-	}
-	public void JumpAnim(char[] buffer, int maxlength)
-	{
-		Dynamic brain = this.GetBrainInterface();
-		if(brain.IsValid)
-		{
-			brain.GetString("JumpAnim", buffer, maxlength);
-		}
-	}
-	public void MoveAnim(char[] buffer, int maxlength)
-	{
-		Dynamic brain = this.GetBrainInterface();
-		if(brain.IsValid)
-		{
-			brain.GetString("MoveAnim", buffer, maxlength);
-		}
-	}
-	public void IdleAnim(char[] buffer, int maxlength)
-	{
-		Dynamic brain = this.GetBrainInterface();
-		if(brain.IsValid)
-		{
-			brain.GetString("IdleAnim", buffer, maxlength);
-		}
+		return SDKCall(g_hGetBodyInterface, SDKCall(g_hMyNextBotPointer, this.index));
 	}
 	public Address GetStudioHdr()
 	{
@@ -553,23 +427,46 @@ methodmap BaseNPC
 
 methodmap PetMedic < BaseNPC
 {
+	property int BeamEntity
+	{
+		public get()         
+		{ 
+			return EntRefToEntIndex(this.ExtractStringValueAsInt("BeamEntity")); 
+		}
+		public set(int iInt) 
+		{
+			char buff[32]; 
+			IntToString(iInt == INVALID_ENT_REFERENCE ? -1 : EntIndexToEntRef(iInt), buff, sizeof(buff)); 
+			SetCustomKeyValue(this.index, "BeamEntity", buff, true); 
+		}
+	}
+	property bool Healing
+	{
+		public get()            { return !!this.ExtractStringValueAsInt("Healing"); }
+		public set(bool bOnOff) { char buff[8]; IntToString(bOnOff, buff, sizeof(buff)); SetCustomKeyValue(this.index, "Healing", buff, true); }
+	}
+	property float NextHealTime
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("NextHealTime"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "NextHealTime", buff, true); }
+	}
+
 	public PetMedic(int client, float vecPos[3], float vecAng[3], const char[] model)
 	{
-		BaseNPC pet = BaseNPC(vecPos, vecAng, model, "0.5");
+		PetMedic pet = view_as<PetMedic>(BaseNPC(vecPos, vecAng, model, "0.5"));
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
-		Dynamic brain = pet.GetBrainInterface();
-		brain.SetBool ("Healing",      false);
-		brain.SetInt  ("BeamEntity",   INVALID_ENT_REFERENCE);
-		brain.SetFloat("NextHealTime", 0.0);
+		pet.Healing = false;
+		pet.BeamEntity = INVALID_ENT_REFERENCE;
+		pet.NextHealTime = 0.0;
 		
 		//REQUIRED
-		brain.SetString("MoveAnim", "run_SECONDARY");
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetString("IdleAnim", "stand_SECONDARY");
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(pet.index, "MoveAnim", "run_SECONDARY", true);
+		pet.MoveSpeed = 150.0;
+		SetCustomKeyValue(pet.index, "IdleAnim", "stand_SECONDARY", true);
+		pet.OutOfRange = 300.0;
 		//////////
 		
 		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
@@ -582,77 +479,7 @@ methodmap PetMedic < BaseNPC
 		
 		//pet.EquipItem("head", "models/player/items/all_class/xms_santa_hat_medic.mdl");
 		
-		return view_as<PetMedic>(pet);
-	}
-	
-	property int BeamEntity
-	{
-		public get()			
-		{
-			int ent = INVALID_ENT_REFERENCE;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				ent = EntRefToEntIndex(brain.GetInt("BeamEntity"));
-			}
-			
-			return ent;
-		}
-		public set(int BeamEntity)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetInt("BeamEntity", EntIndexToEntRef(BeamEntity));
-			}
-		}
-	}
-	property bool Healing
-	{
-		public get()			
-		{
-			bool Healing = false;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				Healing = brain.GetBool("Healing");
-			}
-			
-			return Healing;
-		}
-		public set(bool Healing)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetBool("Healing", Healing);
-			}
-		}
-	}
-	property float NextHealTime
-	{
-		public get()			
-		{
-			float NextHealTime = GetGameTime();
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				NextHealTime = brain.GetFloat("NextHealTime");
-			}
-			
-			return NextHealTime;
-		}
-		public set(float NextHealTime)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetFloat("NextHealTime", NextHealTime);
-			}
-		}
+		return pet;
 	}
 	
 	public void StartHealing(int iEnt)
@@ -694,18 +521,65 @@ methodmap PetMedic < BaseNPC
 
 methodmap PetTank < BaseNPC
 {
+	property int LeftTrack
+	{
+		public get()         
+		{ 
+			return EntRefToEntIndex(this.ExtractStringValueAsInt("LeftTrack")); 
+		}
+		public set(int iInt) 
+		{
+			char buff[32]; 
+			IntToString(iInt == INVALID_ENT_REFERENCE ? -1 : EntIndexToEntRef(iInt), buff, sizeof(buff)); 
+			SetCustomKeyValue(this.index, "LeftTrack", buff, true); 
+		}
+	}
+	property int RightTrack
+	{
+		public get()         
+		{ 
+			return EntRefToEntIndex(this.ExtractStringValueAsInt("RightTrack")); 
+		}
+		public set(int iInt) 
+		{
+			char buff[32]; 
+			IntToString(iInt == INVALID_ENT_REFERENCE ? -1 : EntIndexToEntRef(iInt), buff, sizeof(buff)); 
+			SetCustomKeyValue(this.index, "RightTrack", buff, true); 
+		}
+	}
+	property int Bomb
+	{
+		public get()         
+		{ 
+			return EntRefToEntIndex(this.ExtractStringValueAsInt("Bomb")); 
+		}
+		public set(int iInt) 
+		{
+			char buff[32]; 
+			IntToString(iInt == INVALID_ENT_REFERENCE ? -1 : EntIndexToEntRef(iInt), buff, sizeof(buff)); 
+			SetCustomKeyValue(this.index, "Bomb", buff, true); 
+		}
+	}
+	property bool Deploying
+	{
+		public get()            { return !!this.ExtractStringValueAsInt("Deploying"); }
+		public set(bool bOnOff) { char buff[8]; IntToString(bOnOff, buff, sizeof(buff)); SetCustomKeyValue(this.index, "Deploying", buff, true); }
+	}
+
 	public PetTank(int client, float vecPos[3], float vecAng[3], const char[] model)
 	{
-		BaseNPC pet = BaseNPC(vecPos, vecAng, model, "0.15", _, false);
+		PetTank pet = view_as<PetTank>(BaseNPC(vecPos, vecAng, model, "0.15", _, false));
 		
-		SetEntProp(pet.index,      Prop_Send, "m_nSkin",         GetRandomInt(0, 1));
-		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
+		SetEntProp(pet.index,    Prop_Send, "m_nSkin",        GetRandomInt(0, 1));
+		SetEntPropEnt(pet.index, Prop_Send, "m_hOwnerEntity", client);
 		
-		Dynamic brain = pet.GetBrainInterface();
-		brain.SetInt("LeftTrack", INVALID_ENT_REFERENCE);
-		brain.SetInt("RightTrack", INVALID_ENT_REFERENCE);
-		brain.SetInt("Bomb", INVALID_ENT_REFERENCE);
-		brain.SetBool("Deploying", false);
+		pet.LeftTrack = INVALID_ENT_REFERENCE;
+		pet.RightTrack = INVALID_ENT_REFERENCE;
+		pet.Bomb = INVALID_ENT_REFERENCE;
+		pet.Deploying = false;
+		
+		pet.MoveSpeed = 150.0;
+		pet.OutOfRange = 300.0;
 		
 		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.SetAnimation("movement");
@@ -719,126 +593,60 @@ methodmap PetTank < BaseNPC
 		SDKUnhook(pet.index, SDKHook_Think, BasicPetThink);
 		SDKHook(pet.index, SDKHook_Think, PetTankThink);
 		
-		return view_as<PetTank>(pet);
-	}
-	
-	property int LeftTrack
-	{
-		public get()
-		{
-			int ent = INVALID_ENT_REFERENCE;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				ent = EntRefToEntIndex(brain.GetInt("LeftTrack"));
-			}
-			
-			return ent;
-		}
-		public set(int LeftTrack)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetInt("LeftTrack", EntIndexToEntRef(LeftTrack));
-			}
-		}
-	}
-	property int RightTrack
-	{
-		public get()			
-		{
-			int ent = INVALID_ENT_REFERENCE;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				ent = EntRefToEntIndex(brain.GetInt("RightTrack"));
-			}
-			
-			return ent;
-		}
-		public set(int RightTrack)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetInt("RightTrack", EntIndexToEntRef(RightTrack));
-			}
-		}
-	}
-	property int Bomb
-	{
-		public get()			
-		{
-			int ent = INVALID_ENT_REFERENCE;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				ent = EntRefToEntIndex(brain.GetInt("Bomb"));
-			}
-			
-			return ent;
-		}
-		public set(int Bomb)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetInt("Bomb", EntIndexToEntRef(Bomb));
-			}
-		}
-	}
-	property bool Deploying
-	{
-		public get()			
-		{
-			bool Deploying = false;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				Deploying = brain.GetBool("Deploying");
-			}
-			
-			return Deploying;
-		}
-		public set(bool Deploying)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetBool("Deploying", Deploying);
-			}
-		}
+		return pet;
 	}
 }
 
 methodmap PetEngineer < BaseNPC
 {
+	property int GettingAmmo
+	{
+		public get()         { return this.ExtractStringValueAsInt("GettingAmmo"); }
+		public set(int iInt) { char buff[8]; IntToString(iInt, buff, sizeof(buff)); SetCustomKeyValue(this.index, "GettingAmmo", buff, true); }
+	}
+	property bool CarryingAmmo
+	{
+		public get()            { return !!this.ExtractStringValueAsInt("CarryingAmmo"); }
+		public set(bool bOnOff) { char buff[8]; IntToString(bOnOff, buff, sizeof(buff)); SetCustomKeyValue(this.index, "CarryingAmmo", buff, true); }
+	}
+	property int AmmoRef
+	{
+		public get()         
+		{ 
+			return EntRefToEntIndex(this.ExtractStringValueAsInt("AmmoRef")); 
+		}
+		public set(int iInt) 
+		{
+			char buff[32]; 
+			IntToString(iInt == INVALID_ENT_REFERENCE ? -1 : EntIndexToEntRef(iInt), buff, sizeof(buff)); 
+			SetCustomKeyValue(this.index, "AmmoRef", buff, true); 
+		}
+	}
+	property float NextAmmoCheckTime
+	{
+		public get()                 { return this.ExtractStringValueAsFloat("NextAmmoCheckTime"); }
+		public set(float flNextTime) { char buff[8]; FloatToString(flNextTime, buff, sizeof(buff)); SetCustomKeyValue(this.index, "NextAmmoCheckTime", buff, true); }
+	}
+
 	public PetEngineer(int client, float vecPos[3], float vecAng[3])
 	{
-		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/bots/engineer/bot_engineer.mdl", "0.5");
+		PetEngineer pet = view_as<PetEngineer>(BaseNPC(vecPos, vecAng, "models/bots/engineer/bot_engineer.mdl", "0.5"));
 		
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
-		Dynamic brain = pet.GetBrainInterface();
-		
 		//REQUIRED IF YOU'RE GOING TO USE Blend9Think
-		brain.SetString("MoveAnim", "Run_MELEE", 64);
-		brain.SetFloat("MoveSpeed", 115.0);
-		brain.SetString("IdleAnim", "Stand_MELEE", 64);
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(pet.index, "MoveAnim", "Run_MELEE", true);
+		pet.MoveSpeed = 115.0;
+		SetCustomKeyValue(pet.index, "IdleAnim", "Stand_MELEE", true);
+		pet.OutOfRange = 300.0;
 		//////////
 		
-		brain.SetBool("GettingAmmo", false);
-		brain.SetBool("CarryingAmmo", false);
-		brain.SetInt("AmmoRef", INVALID_ENT_REFERENCE);
-		brain.SetFloat("NextAmmoCheckTime", GetGameTime() + 5.0);
-		
+		pet.GettingAmmo = false;
+		pet.CarryingAmmo = false;
+		pet.AmmoRef = INVALID_ENT_REFERENCE;
+		pet.NextAmmoCheckTime = 0.0;
+
 		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
 		pet.SetAnimation("Stand_PRIMARY");
 		pet.Pathing = true;
@@ -855,109 +663,19 @@ methodmap PetEngineer < BaseNPC
 		return view_as<PetEngineer>(pet);
 	}
 	
-	property int AmmoRef
-	{
-		public get()			
-		{
-			int ent = INVALID_ENT_REFERENCE;
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				ent = EntRefToEntIndex(brain.GetInt("AmmoRef"));
-			}
-			
-			return ent;
-		}
-		public set(int AmmoRef)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetInt("AmmoRef", EntIndexToEntRef(AmmoRef));
-			}
-		}
-	}
-	property bool IsGettingAmmo
-	{
-		public get()
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				return brain.GetBool("GettingAmmo");
-			}
-			
-			return false;
-		}
-		public set(bool state)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetBool("GettingAmmo", state);
-			}
-		}
-	}
-	property bool IsCarryingAmmo
-	{
-		public get()
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				return brain.GetBool("CarryingAmmo");
-			}
-			
-			return false;
-		}
-		public set(bool state)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetBool("CarryingAmmo", state);
-			}
-		}
-	}
-	property float NextAmmoCheckTime
-	{
-		public get()			
-		{
-			float NextAmmoCheckTime = GetGameTime();
-		
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				NextAmmoCheckTime = brain.GetFloat("NextAmmoCheckTime");
-			}
-			
-			return NextAmmoCheckTime;
-		}
-		public set(float NextAmmoCheckTime)
-		{
-			Dynamic brain = this.GetBrainInterface();
-			if(brain.IsValid)
-			{
-				brain.SetFloat("NextAmmoCheckTime", NextAmmoCheckTime);
-			}
-		}
-	}
-	
 	public void StopAmmoHunt()
 	{
 		int client = GetEntPropEnt(this.index, Prop_Send, "m_hOwnerEntity");
 	
 		PF_SetGoalEntity(this.index, client);
 		
-		this.IsGettingAmmo = false;
+		this.GettingAmmo = false;
 		this.Pathing = true;
 		
-		Dynamic brain = this.GetBrainInterface();
-		brain.SetString("MoveAnim", "Run_MELEE", 64);
-		brain.SetFloat("MoveSpeed", 115.0);
-		brain.SetString("IdleAnim", "Stand_MELEE", 64);
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(this.index, "MoveAnim", "Run_MELEE", true);
+		this.MoveSpeed = 150.0;
+		SetCustomKeyValue(this.index, "IdleAnim", "Stand_MELEE", true);
+		this.OutOfRange = 300.0;
 		
 		AcceptEntityInput(this.Weapon, "Kill");
 		this.Weapon = this.EquipItem("head", "models/weapons/w_models/w_wrench.mdl", _, GetClientTeam(client) - 2);
@@ -977,12 +695,11 @@ methodmap PetMerasmus < BaseNPC
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		SetEntProp(pet.index, Prop_Send, "m_nBody", 2);
 		
-		Dynamic brain = pet.GetBrainInterface();
 		//REQUIRED
-		brain.SetString("MoveAnim", "run_MELEE");
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetString("IdleAnim", "stand_MELEE");
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(pet.index, "MoveAnim", "run_MELEE", true);
+		pet.MoveSpeed = 150.0;
+		SetCustomKeyValue(pet.index, "IdleAnim", "Stand_MELEE", true);
+		pet.OutOfRange = 300.0;
 		//////////
 		
 		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
@@ -1008,12 +725,11 @@ methodmap PetSkeletonKing < BaseNPC
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetRandomInt(0, 3));
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
-		Dynamic brain = pet.GetBrainInterface();
 		//REQUIRED
-		brain.SetString("MoveAnim", "run_MELEE");
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetString("IdleAnim", "stand_MELEE");
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(pet.index, "MoveAnim", "run_MELEE", true);
+		pet.MoveSpeed = 150.0;
+		SetCustomKeyValue(pet.index, "IdleAnim", "stand_MELEE", true);
+		pet.OutOfRange = 300.0;
 		//////////
 		
 		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
@@ -1040,13 +756,12 @@ methodmap PetMiniMe < BaseNPC
 		SetEntProp(pet.index, Prop_Send, "m_nSkin", GetClientTeam(client) - 2);
 		SetEntProp(pet.index, Prop_Send, "m_hOwnerEntity", client);
 		SetEntPropEnt(pet.index, Prop_Send, "m_hOwnerEntity", client);
-		
-		Dynamic brain = pet.GetBrainInterface();
+	
 		//REQUIRED
-		brain.SetString("MoveAnim", "run_MELEE");
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetString("IdleAnim", "stand_MELEE");
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(pet.index, "MoveAnim", "run_MELEE", true);
+		pet.MoveSpeed = 150.0;
+		SetCustomKeyValue(pet.index, "IdleAnim", "stand_MELEE", true);
+		pet.OutOfRange = 300.0;
 		//////////
 		
 		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
@@ -1092,12 +807,11 @@ methodmap PetYeti < BaseNPC
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetRandomInt(0, 3));
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
-		Dynamic brain = pet.GetBrainInterface();
 		//REQUIRED
-		brain.SetString("MoveAnim", "run_MELEE");
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetString("IdleAnim", "stand_MELEE");
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(pet.index, "MoveAnim", "run_MELEE", true);
+		pet.MoveSpeed = 150.0;
+		SetCustomKeyValue(pet.index, "IdleAnim", "stand_MELEE", true);
+		pet.OutOfRange = 300.0;
 		//////////
 		
 		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
@@ -1123,12 +837,11 @@ methodmap PetDeskBoy < BaseNPC
 		SetEntProp(pet.index,      Prop_Send, "m_nSkin",        GetClientTeam(client) - 2);
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
-		Dynamic brain = pet.GetBrainInterface();
 		//REQUIRED
-		brain.SetString("MoveAnim", "taunt_russian");
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetString("IdleAnim", "taunt_russian");
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(pet.index, "MoveAnim", "taunt_russian", true);
+		pet.MoveSpeed = 150.0;
+		SetCustomKeyValue(pet.index, "IdleAnim", "taunt_russian", true);
+		pet.OutOfRange = 300.0;
 		//////////
 		
 		int iSequenceMove = SDKCall(g_hLookupSequence, pet.GetStudioHdr(), "taunt_russian");
@@ -1153,12 +866,11 @@ methodmap PetBuster < BaseNPC
 		BaseNPC pet = BaseNPC(vecPos, vecAng, "models/bots/demo/bot_sentry_buster.mdl", "0.5");
 		SetEntPropEnt(pet.index,   Prop_Send, "m_hOwnerEntity", client);
 		
-		Dynamic brain = pet.GetBrainInterface();
 		//REQUIRED
-		brain.SetString("MoveAnim", "Run_MELEE");
-		brain.SetFloat("MoveSpeed", 150.0);
-		brain.SetString("IdleAnim", "Stand_MELEE");
-		brain.SetFloat("OutOfRange", 300.0);
+		SetCustomKeyValue(pet.index, "MoveAnim", "Run_MELEE", true);
+		pet.MoveSpeed = 150.0;
+		SetCustomKeyValue(pet.index, "IdleAnim", "Stand_MELEE", true);
+		pet.OutOfRange = 300.0;
 		//////////
 		
 		pet.CreatePather(client, 18.0, 64.0, 1000.0, MASK_NPCSOLID | MASK_PLAYERSOLID, 50.0, 0.5, 1.0);
@@ -1645,7 +1357,7 @@ public void PetTankThink(int iEntity)
 	SetEntPropFloat(iEntity, Prop_Data, "m_speed", (flDistance >= flOutOfRange) ? (flMoveSpeed * 2) : (flMoveSpeed));
 	
 	bool Deploying = npc.Deploying;
-	int Bomb = npc.Bomb;
+	BaseNPC Bomb = view_as<BaseNPC>(npc.Bomb);
 	
 	float SpecialPos[3];
 	npc.GetSpecialPos(SpecialPos);
@@ -1665,7 +1377,7 @@ public void PetTankThink(int iEntity)
 			npc.SetAnimation("deploy");
 			npc.Deploying = true;
 			npc.SpecialTime = GetGameTime();
-			view_as<BaseNPC>(Bomb).SetAnimation("deploy");
+			Bomb.SetAnimation("deploy");
 		}
 	}
 	
@@ -1768,24 +1480,23 @@ public void PetEngineerThink(int iEntity)
 	{
 		npc.NextAmmoCheckTime = GetGameTime() + 5.0;
 		
-		if(IsAmmoLow(client) && !npc.IsGettingAmmo && !npc.IsCarryingAmmo)
+		if(IsAmmoLow(client) && !npc.GettingAmmo && !npc.CarryingAmmo)
 		{
 			float flPos[3];
 			int ammo = FindNearestAmmoPack(iEntity, flPos);
 			if(IsValidEntity(ammo))
-			{			
-				Dynamic brain = npc.GetBrainInterface();
-				brain.SetFloat("MoveSpeed", 300.0);
+			{
+				npc.MoveSpeed = 300.0;
 				
 				PF_SetGoalVector(iEntity, flPos);
 				npc.Pathing = true;
-				npc.IsGettingAmmo = true;
+				npc.GettingAmmo = true;
 				npc.AmmoRef = ammo;
 			}
 		}
 	}
 	
-	if(npc.IsGettingAmmo)
+	if(npc.GettingAmmo)
 	{	
 		//Update ammo progression
 		int iAmmoTarget = npc.AmmoRef;
@@ -1793,19 +1504,18 @@ public void PetEngineerThink(int iEntity)
 		{	
 			npc.StopAmmoHunt();
 		}
-		else if(!npc.IsCarryingAmmo && npc.IsGettingAmmo)	//Getting / Got ammo
+		else if(!npc.CarryingAmmo && npc.GettingAmmo)	//!Getting && Got ammo
 		{
 			//Check for ammo distance
 			if (GetVectorDistance(WorldSpaceCenter(iAmmoTarget), WorldSpaceCenter(iEntity)) <= 50.0)
 			{
 				//Grabbed some ammo, lets head back. 
 				npc.StopAmmoHunt();
-				npc.IsCarryingAmmo = true;
+				npc.CarryingAmmo = true;
 				
-				Dynamic brain = npc.GetBrainInterface();
-				brain.SetString("MoveAnim", "run_BUILDING_DEPLOYED", 64);
-				brain.SetString("IdleAnim", "stand_BUILDING_DEPLOYED", 64);
-				brain.SetFloat("OutOfRange", 300.0);
+				SetCustomKeyValue(npc.index, "MoveAnim", "run_BUILDING_DEPLOYED", true);
+				SetCustomKeyValue(npc.index, "IdleAnim", "stand_BUILDING_DEPLOYED", true);
+				npc.OutOfRange = 300.0;
 				
 				AcceptEntityInput(npc.Weapon, "Kill");
 				npc.Weapon = npc.EquipItem("head", "models/weapons/w_models/w_toolbox.mdl", _, GetClientTeam(client) - 2);
@@ -1824,7 +1534,7 @@ public void PetEngineerThink(int iEntity)
 		{
 			if(npc.Pathing)
 			{
-				if(npc.IsCarryingAmmo)
+				if(npc.CarryingAmmo)
 				{
 					float vecForward[3], vecRight[3], vecUp[3];
 					SDKCall(g_hGetVectors, iEntity, vecForward, vecRight, vecUp);
@@ -1857,7 +1567,7 @@ public void PetEngineerThink(int iEntity)
 					AcceptEntityInput(ammo, "FireUser1");
 					
 					npc.StopAmmoHunt();
-					npc.IsCarryingAmmo = false;
+					npc.CarryingAmmo = false;
 					npc.NextAmmoCheckTime = GetGameTime() + 30.0;
 				}
 			
@@ -2003,9 +1713,9 @@ public void Blend9Think(int iEntity)
 	Address pStudioHdr = npc.GetStudioHdr(); 
 	
 	char MoveAnim[64], IdleAnim[64];
-	npc.MoveAnim(MoveAnim, sizeof(MoveAnim));
-	npc.IdleAnim(IdleAnim, sizeof(IdleAnim));
-	
+	GetCustomKeyValue(npc.index, "MoveAnim", MoveAnim, sizeof(MoveAnim));
+	GetCustomKeyValue(npc.index, "IdleAnim", IdleAnim, sizeof(IdleAnim));
+
 	int m_iMoveX = SDKCall(g_hLookupPoseParameter, iEntity, pStudioHdr, "move_x");
 	int m_iMoveY = SDKCall(g_hLookupPoseParameter, iEntity, pStudioHdr, "move_y");
 	
@@ -2284,18 +1994,10 @@ public void OnEntityDestroyed(int entity)
 {
 	if(entity > MaxClients && entity <= 2048)
 	{
-		BaseNPC npc = view_as<BaseNPC>(entity);
-		Dynamic brain = npc.GetBrainInterface();
+		(view_as<PetMedic>(entity)).StopHealing();
 		
-		if(brain.IsValid)
-		{
-			(view_as<PetMedic>(entity)).StopHealing();
-			
-			StopSound(npc.index, SNDCHAN_AUTO, ")mvm/mvm_tank_loop.wav");
-			
-			brain.Dispose();
-			brain = INVALID_DYNAMIC_OBJECT;
-		}
+		//BaseNPC npc = view_as<BaseNPC>(entity);
+		//StopSound(npc.index, SNDCHAN_AUTO, ")mvm/mvm_tank_loop.wav");
 	}
 }
 
@@ -2353,7 +2055,7 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 		switch(param2)
 		{
 			case 1:
-			{
+			{			
 				switch(GetRandomInt(1, 2))
 				{
 					case 1:
@@ -2367,7 +2069,7 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 						Format(strModel, sizeof(strModel), "models/bots/tw2/boss_bot/boss_tank%s.mdl", bDamaged ? strDamage : "");
 					
 						PetTank npc = PetTank(param1, flPos, flAng, strModel);
-						
+					
 						npc.LeftTrack  = npc.EquipItem("smoke_attachment", "models/bots/tw2/boss_bot/tank_track_l.mdl", "forward");
 						npc.RightTrack = npc.EquipItem("smoke_attachment", "models/bots/tw2/boss_bot/tank_track_r.mdl", "forward");
 						npc.Bomb = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/bomb_mechanism.mdl");
@@ -2375,12 +2077,13 @@ public int PetSelectHandler(Menu menu, MenuAction action, int param1, int param2
 					case 2:
 					{
 						PetTank npc = PetTank(param1, flPos, flAng, "models/bots/boss_bot/boss_tank.mdl");
-						
+	
 						npc.LeftTrack  = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/tank_track_l.mdl", "forward");
 						npc.RightTrack = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/tank_track_r.mdl", "forward");
 						npc.Bomb = npc.EquipItem("smoke_attachment", "models/bots/boss_bot/bomb_mechanism.mdl");
 					}
 				}
+				
 			}
 			case 2:
 			{
@@ -2779,37 +2482,6 @@ public MRESReturn IBody_GetStandHullHeight(Address pThis, Handle hReturn, Handle
 public MRESReturn IBody_GetHullWidth(Address pThis, Handle hReturn, Handle hParams)        { DHookSetReturn(hReturn, 13.0); return MRES_Supercede; }
 public MRESReturn IBody_GetHullHeight(Address pThis, Handle hReturn, Handle hParams)       { DHookSetReturn(hReturn, 34.0); return MRES_Supercede; }
 
-/*
-min -6.500000 -6.500000 0.000000
-max 6.500000 6.500000 34.000000
-*/
-
-public MRESReturn IBody_GetHullMins(Address pThis, Handle hReturn, Handle hParams)         
-{ 
-	//DHookSetReturnVector(hReturn, view_as<float>( { -6.5, -6.5, 0.0 } )); 
-	//return MRES_Supercede; 
-	
-	float vec[3]; 
-	DHookGetReturnVector(hReturn, vec);
-	
-	PrintToServer("min %f %f %f", vec[0], vec[1], vec[2]);
-	
-	return MRES_Ignored; 
-}
-
-public MRESReturn IBody_GetHullMaxs(Address pThis, Handle hReturn, Handle hParams)         
-{ 
-	//DHookSetReturnVector(hReturn, view_as<float>( { 6.5, 6.5, 68.0 } ));  
-	//return MRES_Supercede; 
-	
-	float vec[3]; 
-	DHookGetReturnVector(hReturn, vec);
-	
-	PrintToServer("max %f %f %f", vec[0], vec[1], vec[2]);
-	
-	return MRES_Ignored; 
-}
-
 public void PluginBot_Approach(int bot_entidx, const float vec[3])
 {
 	BaseNPC npc = view_as<BaseNPC>(bot_entidx);
@@ -2918,7 +2590,7 @@ public float PluginBot_PathCost(int bot_entidx, NavArea area, NavArea from_area,
 	return from_area.GetCostSoFar() + cost;
 }
 
-public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float dir[2])
+public bool PluginBot_Jump(int bot_entidx, float vecPos[3], const float dir[3])
 {
 	bool bOnGround = (GetEntPropEnt(bot_entidx, Prop_Data, "m_hGroundEntity") != -1);
 	
@@ -2938,21 +2610,7 @@ public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float di
 		{
 			height = 16.0;
 		}
-	/*	else
-		{
-			float flMaxHeight = 120.0;
-			if ( height > flMaxHeight )
-			{
-				height = flMaxHeight;
-			}
-		}*/
-		
-		// overshoot the jump by an additional 8 inches
-		// NOTE: This calculation jumps at a position INSIDE the box of the enemy (player)
-		// so if you make the additional height too high, the crab can land on top of the
-		// enemy's head.  If we want to jump high, we'll need to move vecPos to the surface/outside
-		// of the enemy's box.
-	
+
 		float additionalHeight = 0.0;
 		if ( height < 32 )
 		{
@@ -2961,12 +2619,9 @@ public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float di
 		
 		height += additionalHeight;
 		
-		// NOTE: This equation here is from vf^2 = vi^2 + 2*a*d
 		float speed = SquareRoot( 2 * gravity * height );
 		float time = speed / gravity;
 	
-		// add in the time it takes to fall the additional height
-		// So the impact takes place on the downward slope at the original height
 		time += SquareRoot( (2 * additionalHeight) / gravity );
 		
 		// Scale the sideways velocity to get there at the right time
@@ -2992,14 +2647,18 @@ public void PluginBot_Jump(int bot_entidx, const float vecPos[3], const float di
 		npc.Jump();
 		npc.SetVelocity(vecJumpVel);
 		
-		char JumpAnim[32];
+	/*	char JumpAnim[32];
 		npc.JumpAnim(JumpAnim, sizeof(JumpAnim));
 		
 		if(!StrEqual(JumpAnim, ""))
 		{
 			npc.SetAnimation(JumpAnim);
 		}
+		*/
+		return true;
 	}
+	
+	return false;
 }
 
 public void PluginBot_PathFail(int bot_entidx, Address path, MoveToFailureType fail)
@@ -3007,8 +2666,11 @@ public void PluginBot_PathFail(int bot_entidx, Address path, MoveToFailureType f
 	PrintToServer(">>>>>>>>>> PluginBot_PathFail %i path 0x%X reason %i", bot_entidx, path, fail);
 	
 	int iOwner = GetEntPropEnt(bot_entidx, Prop_Send, "m_hOwnerEntity");
-	view_as<BaseNPC>(bot_entidx).DoingSpecial = false;
-	PF_SetGoalEntity(bot_entidx, iOwner);
+	
+	BaseNPC npc = view_as<BaseNPC>(bot_entidx);
+	
+	npc.DoingSpecial = false;
+	PF_SetGoalEntity(npc.index, iOwner);
 }
 
 public void PluginBot_OnContact(int bot_entidx, int other)
