@@ -222,7 +222,7 @@ methodmap Clot < CClotBody
 		int iActivity = npc.LookupActivity("ACT_MP_STAND_MELEE");
 		if(iActivity > 0) npc.StartActivity(iActivity);
 		
-		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 48.0, 0.25, 2.0);
+		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 150.0, 0.25, 1.5);
 		npc.m_flNextTargetTime  = GetGameTime() + GetRandomFloat(1.0, 4.0);
 		npc.m_flNextMeleeAttack = npc.m_flNextTargetTime;
 		
@@ -585,6 +585,27 @@ enum //hitgroup_t
 	NUM_HITGROUPS
 };
 
+stock float HitGroupDamageMultiplier(int hitgroup)
+{
+	switch(hitgroup)
+	{
+		case HITGROUP_HEAD: 
+		     return 0.75;
+		
+		case HITGROUP_CHEST, 
+		     HITGROUP_STOMACH:  
+		     return 1.25;
+		     
+		case HITGROUP_LEFTLEG, 
+		     HITGROUP_RIGHTLEG,
+		     HITGROUP_LEFTARM,
+		     HITGROUP_RIGHTARM: 
+		     return 0.75;
+	}
+	
+	return 1.0;
+}
+
 public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& damage, int& damagetype, int& ammotype, int hitbox, int hitgroup)
 {
 	//Friendly fire
@@ -599,8 +620,9 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 	
 	Clot npc = view_as<Clot>(victim);
 	
-	Action result = Plugin_Continue;
 	int nBody = GetEntProp(npc.index, Prop_Send, "m_nBody");
+	
+	damage *= HitGroupDamageMultiplier(hitgroup);
 	
 	//Headshots always crit
 	if(hitgroup == HITGROUP_HEAD)
@@ -648,8 +670,6 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 			npc.DispatchParticleEffect(npc.index, "crit_text", NULL_VECTOR, NULL_VECTOR, NULL_VECTOR, npc.FindAttachment("gore_headfrontright"), PATTACH_POINT_FOLLOW, true);
 			damagetype |= DMG_CRIT;
 		}
-	
-		result = Plugin_Changed;
 	}
 	else
 	{
@@ -685,7 +705,7 @@ public Action ClotDamaged(int victim, int& attacker, int& inflictor, float& dama
 		npc.GetVisionInterface().AddKnownEntity(attacker);
 	}
 	
-	return result;
+	return Plugin_Changed;
 }
 
 public Action Command_PetMenu(int client, int argc)

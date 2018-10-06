@@ -6,7 +6,7 @@
 #include <dhooks>
 
 //#define DEBUG_UPDATE
-//#define DEBUG_ANIMATION
+#define DEBUG_ANIMATION
 //#define DEBUG_SOUND
 
 #include <base/CBaseActor>
@@ -219,7 +219,7 @@ methodmap Clot < CClotBody
 		int iActivity = npc.LookupActivity("ACT_MP_STAND_MELEE");
 		if(iActivity > 0) npc.StartActivity(iActivity);
 		
-		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 48.0, 0.25, 2.0);
+		npc.CreatePather(18.0, npc.GetMaxJumpHeight(), 1000.0, npc.GetSolidMask(), 150.0, 0.25, 1.5);
 		npc.m_flNextTargetTime  = GetGameTime() + GetRandomFloat(1.0, 4.0);
 		npc.m_flNextMeleeAttack = npc.m_flNextTargetTime;
 		
