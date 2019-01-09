@@ -149,6 +149,7 @@
 				"windows"	"\x55\x8B\xEC\x8B\x45\x08\x56\x8B\xF1\x85\xC0\x75\x2A\x8B\x86\xD0\x00\x00\x00\x89\x45\x08"
 				"linux"		"@_ZN11CBaseEntity12GetNextThinkEPKc"
 			}
+			
 			"SelectWeightedSequence"
 			{
 				"windows"	"\x55\x8B\xEC\x56\x8B\x75\x08\x85\xF6\x75\x2A\x33\xC0\x5E\x5D\xC3\x8B\xCE\xE8\x2A\x2A\x2A\x2A\x84\xC0\x74\x2A\x8B\xCE"
@@ -289,7 +290,11 @@
 				"windows"	"206"
 				"linux"		"207"
 			}
-			
+			"INextBotEventResponder::OnContact" //(CBaseEntity*, CGameTrace*)
+			{
+				"windows"	"5"
+				"linux"		"6"
+			}
 			"INextBot::GetLocomotionInterface"
 			{
 				"windows"	"48"
@@ -434,8 +439,18 @@
 			}
 			"ILocomotion::ClearStuckStatus"
 			{
-				"windows"	"97"
-				"linux"		"98"
+				"windows"	"105"
+				"linux"		"104"
+			}
+			"ILocomotion::SetAcceleration"
+			{
+				"windows"	"104"
+				"linux"		"105"
+			}
+			"ILocomotion::GetAcceleration"
+			{
+				"windows"	"102"
+				"linux"		"103"
 			}
 			"ILocomotion::SetVelocity"
 			{
@@ -580,6 +595,41 @@
 			{
 				"windows"	"62"
 				"linux"		"63"
+			}
+			"IBody::SetDesiredPosture"	//(IBody::PostureType)
+			{
+				"windows"	"63"
+				"linux"		"64"
+			}
+			"IBody::GetDesiredPosture"
+			{
+				"windows"	"64"
+				"linux"		"65"
+			}
+			"IBody::IsDesiredPosture"	//(IBody::PostureType)
+			{
+				"windows"	"65"
+				"linux"		"66"
+			}
+			"IBody::IsInDesiredPosture"
+			{
+				"windows"	"66"
+				"linux"		"67"
+			}
+			"IBody::GetActualPosture"
+			{
+				"windows"	"67"
+				"linux"		"68"
+			}
+			"IBody::IsActualPosture"	//(IBody::PostureType)
+			{
+				"windows"	"68"
+				"linux"		"69"
+			}
+			"IBody::IsPostureMobile"
+			{
+				"windows"	"69"
+				"linux"		"70"
 			}
 			
 			"CBaseCombatCharacter::ShouldGib"
