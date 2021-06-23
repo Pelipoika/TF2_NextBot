@@ -114,8 +114,8 @@
 			}
 			"CBaseAnimating::GetAttachment" //bool ( int iAttachment, Vector &absOrigin, QAngle &absAngles ) <- "alt-origin"
 			{
-				"windows"	"\x55\x8B\xEC\x8B\x01\x8D\x55\xD0\x83\xEC\x30\x8B\x80\x40\x03\x00\x00\x53\x52\xFF\x75\x08\xFF\xD0\xFF\x75\x10"
-				"linux"		"@_ZN14CBaseAnimating13GetAttachmentEiR6VectorR6QAngle"
+				"windows"	"\x55\x8B\xEC\x8B\x01\x8D\x55\xD0\x83\xEC\x30\x8B\x80\x44\x03\x00\x00\x53\x52\xFF\x75\x08\xFF\xD0\xFF\x75\x10"
+				"linux"		"@_ZN14CBaseAnimating13GetAttachmentEPKcR6VectorR6QAngle"
 			}
 			"CBaseAnimating::FindBodygroupByName" //CBaseAnimating::FindBodygroupByName(this, "mini_sentry_light");
 			{
@@ -203,7 +203,8 @@
 			//Inside "CTFBaseBoss::Event_Killed" found with string "item_currencypack_custom"
 			"NextBotCombatCharacter::Event_Killed" //(NextBotCombatCharacter *this, const CTakeDamageInfo *a2)
 			{
-				"windows"	"\x55\x8B\xEC\x56\x57\x8B\x7D\x08\x8B\xF1\x8B\x4F\x28"
+				"windows"	"\x55\x8B\xEC\x53\x8B\x5D\x08\x56\x8B\xF1\x8B\x4B\x28"
+				"linux"		"@_ZN22NextBotCombatCharacter12Event_KilledERK15CTakeDamageInfo"
 			}
 			
 			// STR: "BaseCombatCharacter.StopWeaponSounds", "KilledNPC", "item_healthvial"
@@ -211,6 +212,7 @@
 			{
 				"windows"	"\x55\x8B\xEC\x83\xEC\x20\x53\x56\x8B\xF1\xC6\x45\xFF\x01"
 			}
+			
 		}
 		"Offsets"
 		{
@@ -222,36 +224,36 @@
 			
 			"CTFPlayer::GetAmmoCount" //(int)
 			{		
-				"windows"	"258"		
-				"linux"		"259"
+				"windows"	"259"		
+				"linux"		"260"
 			}	
 			
 			"CTFWeaponBaseGun::GetWeaponID" //(int)
 			{		
-				"windows"	"372"		
-				"linux"		"378"
+				"windows"	"373"		
+				"linux"		"379"
 			}
 			"CTFWeaponBaseGun::HasAmmo" //()
 			{
-				"windows"	"232"
-				"linux"		"238"
+				"windows"	"233"
+				"linux"		"239"
 			}
 			
 			"CTFWeaponBaseGun::GetProjectileSpeed" //(float)
 			{		
-				"windows"	"473"		
-				"linux"		"480"
+				"windows"	"474"		
+				"linux"		"481"
 			}
 			"CTFWeaponBaseGun::GetProjectileGravity" //(float)
 			{		
-				"windows"	"474"		
-				"linux"		"481"
+				"windows"	"475"		
+				"linux"		"482"
 			}
 			
 			"CTFBaseBoss::GetCurrencyValue"
 			{
 				"windows"	"329" //Windows always +1 off
-				"linux"		"333"
+				"linux"		"335"
 			}
 			
 			"CBaseEntity::WorldSpaceCenter"		
@@ -277,18 +279,18 @@
 			
 			"CBaseAnimating::StudioFrameAdvance"
 			{
-				"windows"	"193"
-				"linux"		"194"
+				"windows"	"194"
+				"linux"		"195"
 			}
 			"CBaseAnimating::DispatchAnimEvents"
 			{
-				"windows"	"205"
-				"linux"		"206"
+				"windows"	"206"
+				"linux"		"207"
 			}
 			"CBaseAnimating::HandleAnimEvent" //(animevent_t*)
 			{
-				"windows"	"206"
-				"linux"		"207"
+				"windows"	"207"
+				"linux"		"208"
 			}
 			"INextBotEventResponder::OnContact" //(CBaseEntity*, CGameTrace*)
 			{
@@ -439,18 +441,8 @@
 			}
 			"ILocomotion::ClearStuckStatus"
 			{
-				"windows"	"105"
-				"linux"		"104"
-			}
-			"ILocomotion::SetAcceleration"
-			{
-				"windows"	"104"
-				"linux"		"105"
-			}
-			"ILocomotion::GetAcceleration"
-			{
-				"windows"	"102"
-				"linux"		"103"
+				"windows"	"97"
+				"linux"		"98"
 			}
 			"ILocomotion::SetVelocity"
 			{
@@ -634,13 +626,13 @@
 			
 			"CBaseCombatCharacter::ShouldGib"
 			{
-				"windows"	"289"
-				"linux"		"290"
+				"windows"	"290"
+				"linux"		"291"
 			}
 			"CBaseCombatCharacter::GetTimeSinceLastInjury" //(int team)
 			{
-				"windows"	"282"
-				"linux"		"283"
+				"windows"	"283"
+				"linux"		"284"
 			}
 			"CTFBaseBoss::Event_Killed" //(CTakeDamageInfo const&)
 			{
